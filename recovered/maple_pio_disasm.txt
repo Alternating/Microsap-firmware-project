@@ -1,0 +1,58 @@
+
+== maple_prog_A@0x1005e4b4 (len 30) ==
+   0: 80a0  pull block               ; ds=00000
+   1: e103  set pins, 3              ; ds=00001
+   2: e043  set y, 3                 ; ds=00000
+   3: e302  set pins, 2              ; ds=00011
+   4: e300  set pins, 0              ; ds=00011
+   5: 0083  jmp y-- 3                ; ds=00000
+   6: e202  set pins, 2              ; ds=00010
+   7: e303  set pins, 3              ; ds=00011
+   8: 6021  out x, 1                 ; ds=00000
+   9: e301  set pins, 1              ; ds=00011
+  10: 002e  jmp !x 14                ; ds=00000
+  11: e103  set pins, 3              ; ds=00001
+  12: e002  set pins, 2              ; ds=00000
+  13: 000f  jmp 15                   ; ds=00000
+  14: e200  set pins, 0              ; ds=00010
+  15: e102  set pins, 2              ; ds=00001
+  16: 6021  out x, 1                 ; ds=00000
+  17: e002  set pins, 2              ; ds=00000
+  18: 0036  jmp !x 22                ; ds=00000
+  19: e103  set pins, 3              ; ds=00001
+  20: e001  set pins, 1              ; ds=00000
+  21: 0017  jmp 23                   ; ds=00000
+  22: e000  set pins, 0              ; ds=00000
+  23: 02e8  jmp !osre 8              ; ds=00010
+  24: e503  set pins, 3              ; ds=00101
+  25: e301  set pins, 1              ; ds=00011
+  26: e300  set pins, 0              ; ds=00011
+  27: e301  set pins, 1              ; ds=00011
+  28: e300  set pins, 0              ; ds=00011
+  29: e201  set pins, 1              ; ds=00010
+
+== maple_prog_B@0x1005e4f8 (len 24) ==
+   0: 20a0  wait 1 pin 0             ; ds=00000
+   1: 20a1  wait 1 pin 1             ; ds=00000
+   2: a020  mov x, pins              ; ds=00000
+   3: a040  mov y, pins              ; ds=00000
+   4: 00a7  jmp x!=y 7               ; ds=00000
+   5: a022  mov x, y                 ; ds=00000
+   6: 0003  jmp 3                    ; ds=00000
+   7: 0025  jmp !x 5                 ; ds=00000
+   8: 008b  jmp y-- 11               ; ds=00000
+   9: e020  set x, 0                 ; ds=00000
+  10: 0013  jmp 19                   ; ds=00000
+  11: 008e  jmp y-- 14               ; ds=00000
+  12: e021  set x, 1                 ; ds=00000
+  13: 0015  jmp 21                   ; ds=00000
+  14: 0091  jmp y-- 17               ; ds=00000
+  15: e022  set x, 2                 ; ds=00000
+  16: 0015  jmp 21                   ; ds=00000
+  17: e023  set x, 3                 ; ds=00000
+  18: 0003  jmp 3                    ; ds=00000
+  19: e040  set y, 0                 ; ds=00000
+  20: 0016  jmp 22                   ; ds=00000
+  21: e041  set y, 1                 ; ds=00000
+  22: 4041  in y, 1                  ; ds=00000
+  23: 0003  jmp 3                    ; ds=00000

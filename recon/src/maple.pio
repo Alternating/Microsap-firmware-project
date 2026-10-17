@@ -1,0 +1,99 @@
+; Reconstructed from pico2maple_flipped-bt.uf2 (RP2350 build, "Mar  4 2026")
+; PIO programs at flash 0x1005e4b4 (TX, 30 instr) and 0x1005e4f8 (RX, 24 instr),
+; pio_program_t structs at 0x1005e4ac / 0x1005e4f0, both pio_version=1 (RP2350).
+;
+; Pin convention (alternate/"flipped" layout): base pin = GPIO6, base+1 = GPIO7.
+; pins bit0 (base+0) = "Maple 1" (SDCKA), bit1 (base+1) = "Maple 2" (SDCKB).
+; Both programs use SET pins (TX) / IN pins (RX) with a 2-pin group.
+; No side-set is used (all 5 delay/side-set bits are delay).
+;
+; NOTE: sm_config details (clkdiv, wrap, shift dir, autopush threshold, pindir
+; handling between frames) come from the maple init function in the ARM code
+; (literal pool 0x10001b98/0x10001ba0) — see maple.c reconstruction.
+
+.program maple_tx
+.pio_version 1
+; OSR: frame bits, LSB-first pairs (out x,1 twice per 2-bit cell).
+; Line encoding: Maple sends each pair as
+;   phase 1: SDCKA falls (clock), data bit on SDCKB
+;   phase 2: SDCKB falls (clock), data bit on SDCKA
+frame_start:
+    pull block              ; wait for first word of a frame
+    set pins, 0b11      [1] ; both lines high (idle)
+    set y, 3                ; start pattern: 4 SDCKB pulses with SDCKA low
+start_pattern:
+    set pins, 0b10      [3] ;   SDCKA low, SDCKB high
+    set pins, 0b00      [3] ;   SDCKB low pulse
+    jmp y--, start_pattern
+    set pins, 0b10      [2] ;   SDCKB back high (SDCKA still low)
+    set pins, 0b11      [3] ; both high — start pattern done
+bit_pair:
+    out x, 1                ; ---- phase 1: data on SDCKB, SDCKA clocks ----
+    set pins, 0b01      [3] ; SDCKB preset low (data=? set below), SDCKA high
+    jmp !x, tx1_zero
+    set pins, 0b11      [1] ;   data 1: SDCKB high
+    set pins, 0b10          ;   SDCKA falls (clock), SDCKB=1
+    jmp tx1_done
+tx1_zero:
+    set pins, 0b00      [2] ;   data 0: SDCKA falls, SDCKB=0
+tx1_done:
+    set pins, 0b10      [1] ; SDCKB high, SDCKA still low
+    out x, 1                ; ---- phase 2: data on SDCKA, SDCKB clocks ----
+    set pins, 0b10          ; hold
+    jmp !x, tx2_zero
+    set pins, 0b11      [1] ;   data 1: SDCKA high
+    set pins, 0b01          ;   SDCKB falls (clock), SDCKA=1
+    jmp tx2_done
+tx2_zero:
+    set pins, 0b00          ;   data 0: SDCKB falls, SDCKA=0
+tx2_done:
+    jmp !osre, bit_pair [2] ; more bits in OSR? (autopull refills between words)
+    ; ---- end pattern: SDCKB low, SDCKA pulses low twice ----
+    set pins, 0b11      [5]
+    set pins, 0b01      [3] ; SDCKB low
+    set pins, 0b00      [3] ; SDCKA low
+    set pins, 0b01      [3] ; SDCKA high
+    set pins, 0b00      [3] ; SDCKA low
+    set pins, 0b01      [2] ; SDCKA high (SDCKB released by ARM code / pindirs)
+    ; wraps to frame_start (pull blocks until next frame)
+
+.program maple_rx
+.pio_version 1
+; Edge/state-transition decoder. x = previous 2-pin state, y = new state.
+; A falling clock edge is any transition (except from state 00) into:
+;   state 00 -> data bit 0;  state 01 or 10 -> data bit 1;
+;   state 11 -> idle restored, no bit.
+; 'in y, 1' accumulates bits (autopush threshold set by sm_config).
+    wait 1 pin 0            ; wait for bus idle (both high)
+    wait 1 pin 1
+    mov x, pins             ; x = current state
+sample:
+    mov y, pins             ; y = new state
+    jmp x!=y, changed
+resync:
+    mov x, y
+    jmp sample
+changed:
+    jmp !x, resync          ; transitions out of state 00 are clock releases: ignore
+    jmp y--, not0
+    set x, 0                ; new state 00: a clock fell, other line low
+    jmp bit0
+not0:
+    jmp y--, not1
+    set x, 1                ; new state 01: SDCKB fell, SDCKA(data)=1
+    jmp bit1
+not1:
+    jmp y--, state3
+    set x, 2                ; new state 10: SDCKA fell, SDCKB(data)=1
+    jmp bit1
+state3:
+    set x, 3                ; back to idle (end-pattern edge), no data bit
+    jmp sample
+bit0:
+    set y, 0
+    jmp shift
+bit1:
+    set y, 1
+shift:
+    in y, 1
+    jmp sample              ; 24 instructions, matches original layout

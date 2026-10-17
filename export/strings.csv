@@ -1,0 +1,1064 @@
+address|string|referencing_functions
+100570b0|Starting pico2maple|10000608:main;10000254:FUN_10000254;1000022c:FUN_1000022c
+100570c4|Dreamcast Controller          |1000066c:maple_build_device_info_blocks
+100570e4|Twin Stick                    |1000066c:maple_build_device_info_blocks
+10057104|Racing Controller             |1000066c:maple_build_device_info_blocks
+10057124|Keyboard                      |
+10057144|Dreamcast Mouse               |1000066c:maple_build_device_info_blocks
+10057164|Produced By or Under License From SEGA ENTERPRISES,LTD.     |10002948:vmu_maple_cmd_handler_b;10000824:vmu_build_device_info;1000066c:maple_build_device_info_blocks;10002568:vmu_maple_cmd_handler_a
+100571a4|Visual Memory                 |10002948:vmu_maple_cmd_handler_b;10000824:vmu_build_device_info;10002568:vmu_maple_cmd_handler_a
+100571c4|pico2maple_controller_map.cfg|10000298:FUN_10000298
+100571e4|Pico2Maple USBBT|10002948:vmu_maple_cmd_handler_b;10002568:vmu_maple_cmd_handler_a
+100571f8|internal/vmu_internal%02d.bin|10002568:vmu_maple_cmd_handler_a
+10057218|/pico2maple|100039d0:sd_ensure_dirs;100039d0:sd_ensure_dirs
+10057224|/pico2maple/internal|100039d0:sd_ensure_dirs
+1005723c|/pico2maple/gameid|100039d0:sd_ensure_dirs
+10057250|vmu%02d.bin|10003abc:vmu_bank_filename;10003bc8:vmu_bank_file_fn
+1005725c|gameid/%s|10003ae0:gameid_path_build
+10057268|%s/%s-%u.bin|10003ae0:gameid_path_build
+10057278|gameid/%s/%s-%u.bin|10003bf4:gameid_vmu_path_build
+1005728c|pico2maple_settings.bin|10003e94:settings_fn_3e94;10004218:settings_fn_4218;10004120:settings_fn_4120;10003f48:settings_fn_3f48
+100572b4|START|1000498c:cfg_parse_mapping_file
+100572c4|DPAD_UP|1000498c:cfg_parse_mapping_file
+100572cc|DPAD_DOWN|1000498c:cfg_parse_mapping_file
+100572d8|DPAD_LEFT|1000498c:cfg_parse_mapping_file
+100572e4|DPAD_RIGHT|1000498c:cfg_parse_mapping_file
+100572f0|DPAD2_UP|1000498c:cfg_parse_mapping_file
+100572fc|DPAD2_DOWN|1000498c:cfg_parse_mapping_file
+10057308|DPAD2_LEFT|1000498c:cfg_parse_mapping_file
+10057314|DPAD2_RIGHT|1000498c:cfg_parse_mapping_file
+10057328|A1_UP|1000498c:cfg_parse_mapping_file
+10057330|A1_DOWN|1000498c:cfg_parse_mapping_file
+10057338|A1_LEFT|1000498c:cfg_parse_mapping_file
+10057340|A1_RIGHT|1000498c:cfg_parse_mapping_file
+1005734c|A2_UP|1000498c:cfg_parse_mapping_file
+10057354|A2_DOWN|1000498c:cfg_parse_mapping_file
+1005735c|A2_LEFT|1000498c:cfg_parse_mapping_file
+10057364|A2_RIGHT|1000498c:cfg_parse_mapping_file
+10057370|OPTION_AUTOLOAD|10004cb8:FUN_10004cb8
+10057380|FALSE|10004cb8:FUN_10004cb8
+10057390|pico2maple_controller_map_sample.cfg|10004d60:cfg_write_sample_file;10004d60:cfg_write_sample_file
+100573b8|%02x |10005568:FUN_10005568
+100573c4|TinyUSB device mounted, address = %d\r\n|100073f4:tuh_mount_cb
+100573ec|Device removed, address = %d\r\n|10007400:tuh_umount_cb
+1005740c|HID Interface Protocol = %s\r\n|1000740c:FUN_1000740c
+1005742c|HID device address = %d, instance = %d is unmounted\r\n|10007548:FUN_10007548
+10057464|Error: cannot request to receive report\r|10007588:FUN_10007588
+10057498|Keyboard|1000740c:FUN_1000740c
+100574a4|BP32 Pico2Maple Platform|
+100574c0|failed to initialise cyw43_arch\r|10008d14:FUN_10008d14
+100574e4|\n*** PANIC ***\n|1000904c:panic
+100574f4|No spinlocks are available|10009210:FUN_10009210
+10057510|No user IRQs are available|10009864:FUN_10009864
+1005752c|Hardware alarm %d already claimed|
+10057550|No alarms available|1000a2d8:FUN_1000a2d8
+10057564|Hard assert|1000a9d0:FUN_1000a9d0
+10057570|Out of memory|1000bdd0:FUN_1000bdd0;1000be08:FUN_1000be08
+10057580|Release|
+100575a8|pico2maple|
+100575d8|UART stdin|
+100575e4|UART stdout|
+100575f0|UART stdin / stdout|
+10057604|Unhandled buffer %d\n|1000e020:FUN_1000e020
+1005761c|Data Seq Error \n|1000e020:FUN_1000e020
+10057630|Unhandled IRQ 0x%x\n|1000e020:FUN_1000e020
+10057644|Invalid speed\n|10010418:FUN_10010418;1000ed90:FUN_1000ed90;1000ea84:FUN_1000ea84
+10057654|ep %02X was already available|1000eed4:FUN_1000eed4
+10057674|Can't continue xfer on inactive ep %02X|1000f12c:FUN_1000f12c
+1005769c|No PIO state machines are available|10012224:FUN_10012224;10011e54:FUN_10011e54
+100576c0|DMA channel %d is already claimed|
+100576e4|No DMA channels are available|100125ac:FUN_100125ac
+10057714|FAT32   |10014298:FUN_10014298
+1005772c|+,;=[]|100158b4:FUN_100158b4
+10057734|No SD card detected!\r\n|10018a70:FUN_10018a70
+10057750|SDIO card reports write CRC error, status %lx\n|100a09e0:FUN_100a09e0;200009d0:ram_fn_200009d0
+10057780|SDIO card reports write failure, status %lx\n|100a09e0:FUN_100a09e0;200009d0:ram_fn_200009d0
+100577b0|SDIO card reports unknown write status %lx\n|100a09e0:FUN_100a09e0;200009d0:ram_fn_200009d0
+100577dc|%s: Timeout waiting for response in rp2040_sdio_command_R1(0x%hx)\n|10018e88:FUN_10018e88
+10057820|rp2040_sdio_command_R1(%d): CRC error, calculated 0x%hx, packet has 0x%hx\n|10018e88:FUN_10018e88
+1005786c|%d rp2040_sdio_command_R1(%d): received reply for %d\n|10018e88:FUN_10018e88
+100578a4|SDIO checksum error in reception: block %d calculated 0x%llx expected 0x%llx\n|1001940c:FUN_1001940c;1001940c:FUN_1001940c
+100578f4|rp2040_sdio_tx_poll() timeout\n|10019634:FUN_10019634
+10057914|Unknown error|10019cec:FUN_10019cec;10019cec:FUN_10019cec;10019cec:FUN_10019cec;10019cec:FUN_10019cec;10019cec:FUN_10019cec;10019cec:FUN_10019cec;10019cec:FUN_10019cec;10019cec:FUN_10019cec;10019cec:FUN_10019cec;10019cec:FUN_10019cec;10019cec:FUN_10019cec;10019cec:FUN_10019cec;10019cec:FUN_10019cec;10019cec:FUN_10019cec;1001a234:FUN_1001a234;1001a448:FUN_1001a448;1001a448:FUN_1001a448;1001a448:FUN_1001a448;1001a448:FUN_1001a448;1001a448:FUN_1001a448;1001a70c:FUN_1001a70c;1001a70c:FUN_1001a70c;1001a70c:FUN_1001a70c;1001a70c:FUN_1001a70c;1001a338:FUN_1001a338;1001a338:FUN_1001a338;1001a338:FUN_1001a338;1001a338:FUN_1001a338;1001a5f0:FUN_1001a5f0;1001a5f0:FUN_1001a5f0;1001a5f0:FUN_1001a5f0;1001a5f0:FUN_1001a5f0
+10057924|%s,%d SDIO not responding to CMD8 SEND_IF_COND, status 0x%x reply 0x%lx\n|10019cec:FUN_10019cec
+10057970|%s at line %d; error code %d\n|10019cec:FUN_10019cec;10019cec:FUN_10019cec;10019cec:FUN_10019cec;1001a234:FUN_1001a234;1001a448:FUN_1001a448;1001a70c:FUN_1001a70c;1001a338:FUN_1001a338;1001a5f0:FUN_1001a5f0
+10057990|SDIO card initialization timeout\n|10019cec:FUN_10019cec
+100579b4|%s,%d SDIO failed to set BLOCKLEN\n|10019cec:FUN_10019cec
+100579d8|sd_sdio_stopTransmission() timeout\n|1001a234:FUN_1001a234
+100579fc|sd_sdio_writeSector(%lu) failed: %s (%d)\n|1001a338:FUN_1001a338
+10057a28|sd_sdio_writeSectors(,%lu,,%zu) failed: %s (%d)\n|1001a448:FUN_1001a448
+10057a5c|sd_sdio_readSector(,%lu,) failed: %s (%d)\n|1001a5f0:FUN_1001a5f0
+10057a88|sd_sdio_readSectors(%ld,...,%d)  failed: %s (%d)\n|1001a70c:FUN_1001a70c
+10057abc|SDIO: OK|
+10057ac8|SDIO: busy|
+10057ad4|SDIO: Timed out waiting for response from card|
+10057b04|SDIO: Response CRC is wrong|
+10057b20|SDIO: Response command code does not match what was sent|
+10057b5c|SDIO: Timed out waiting for data block|
+10057b84|SDIO: CRC for data packet is wrong|
+10057ba8|SDIO: Card reports bad CRC for write|
+10057bd0|SDIO: Card reports write failure|
+10057bf4|%s: Block Write not accepted. Response token: 0x%x, status bits: %d%d%d\n|1001b250:FUN_1001b250
+10057c40|No disk, or could not put SD card in to SPI idle state\n|1001c2fc:FUN_1001c2fc
+10057c78|Timeout waiting for card\n|1001c2fc:FUN_1001c2fc;1001c2fc:FUN_1001c2fc
+10057c94|Failed to initialize card\n|1001c2fc:FUN_1001c2fc
+10057cb0|SD Standard Capacity Memory Card unsupported\n|1001c2fc:FUN_1001c2fc
+10057ce0|cyw43_read_bytes error %d|1001e188:FUN_1001e188
+10057cfc|[CYW43] cyw43_kso_set(%d): failed\n|1001e4c4:FUN_1001e4c4
+10057d20|[CYW43] Bus error condition detected 0x%x\n|1001e540:FUN_1001e540
+10057d4c|[CYW43] error: hdr mismatch %04x ^ %04x\n|1001e540:FUN_1001e540
+10057d78|[CYW43] STALL(%u;%u-%u): timeout\n|1001e770:FUN_1001e770
+10057d9c|[CYW43] do_ioctl: got unexpected packet %d\n|1001e858:FUN_1001e858
+10057dc8|[CYW43] do_ioctl(%u, %u, %u): timeout\n|1001e858:FUN_1001e858
+10057df0|[CYW43] core not in reset|1001f124:FUN_1001f124;1001f124:FUN_1001f124;1001ebe8:FUN_1001ebe8
+10057e0c|bus:txglom|1001f124:FUN_1001f124
+10057e18|apsta|1001f124:FUN_1001f124
+10057e20|ampdu_ba_wsize|
+10057e3c|ampdu_rx_factor|
+10057e4c|bsscfg:event_msgs|
+10057e60|[CYW43] Failed to start CYW43|1001f124:FUN_1001f124
+10057e80|Version: |1001f124:FUN_1001f124
+10057e8c|[CYW43] could not find valid firmware|1001f124:FUN_1001f124
+10057eb4|[CYW43] timeout waiting for ALP to be set|1001f124:FUN_1001f124
+10057ee0|[CYW43] core not up|1001f124:FUN_1001f124;1001f124:FUN_1001f124
+10057ef4|[CYW43] HT not ready|1001f124:FUN_1001f124
+10057f0c|[CYW43] F2 not ready|1001f124:FUN_1001f124
+10057f24|[CYW43] CLM load failed|1001f124:FUN_1001f124
+10057f3c|cur_etheraddr|1001f124:FUN_1001f124
+10057f54|backplane write 0x%lx,0x%lx failed|1001fe6c:FUN_1001fe6c
+10057f78|[% 8d] ASYNC(%04x,|10020294:FUN_10020294
+10057f8c|,%u,%u,%u)\n|10020294:FUN_10020294
+10057f98|cyw43_bluetooth_hci_read: failed to read from shared bus|10020530:FUN_10020530
+10057fd4|cyw43_bluetooth_hci_write: failed to write to shared bus|10020598:FUN_10020598
+10058010|SET_SSID|
+1005802c|DEAUTH_IND|
+10058040|DISASSOC|
+1005804c|DISASSOC_IND|
+10058064|PSK_SUP|
+1005806c|ESCAN_RESULT|
+1005807c|CSA_COMPLETE_IND|
+10058090|ASSOC_REQ_IE|
+100580a0|ASSOC_RESP_IE|
+100580b0|cyw43 buffer overflow|100205f8:FUN_100205f8
+100580c8|cyw43 btsdio register corruption|10020d24:FUN_10020d24
+100580ec|cyw43 has no ethernet interface|1002131c:FUN_1002131c;10021310:FUN_10021310;10021328:FUN_10021328
+1005810c|async_context lock_check failed|
+1005812c|btstack_link_key_db_tlv.c|10021df0:FUN_10021df0
+10058148|%s.%u: tag_for_addr %x, tag_for_empy %x, tag_for_lowest_seq_nr %x|
+1005818c|%s.%u: store with tag %x|
+100581a8|%s.%u: store link key failed|
+100581c8|%s.%u: tag %x, addr %s|10021df0:FUN_10021df0
+100581e0|sdp_client.c|10021fc8:FUN_10021fc8;10021fc8:FUN_10021fc8;10021fc8:FUN_10021fc8;10021fc8:FUN_10021fc8;10021fc8:FUN_10021fc8;10021fc8:FUN_10021fc8;10021fc8:FUN_10021fc8;10021fc8:FUN_10021fc8
+100581f0|%s.%u: Mismatching transaction ID, expected %u, found %u.|10021fc8:FUN_10021fc8
+1005822c|%s.%u: Received error response with code %u, disconnecting|10021fc8:FUN_10021fc8
+10058268|%s.%u: Error parsing ServiceSearchAttributeResponse: Number of bytes in found attribute list is larger then the MaximumAttributeByteCount.|10021fc8:FUN_10021fc8
+100582f4|%s.%u: Error parsing ServiceSearchAttributeResponse: Number of bytes in continuation state exceedes 16.|10021fc8:FUN_10021fc8
+1005835c|%s.%u: PDU ID %u unexpected/invalid|10021fc8:FUN_10021fc8
+10058380|%s.%u: SDP Client Connection failed, status 0x%02x.|10021fc8:FUN_10021fc8
+100583b4|%s.%u: SDP Client sdp_client_send_request :: PDU ID invalid. %u|10021fc8:FUN_10021fc8
+100583f4|%s.%u: SDP Client disconnected.|10021fc8:FUN_10021fc8
+10058414|sdp_server.c|10022f58:FUN_10022f58;10022f58:FUN_10022f58
+10058424|%s.%u: busy, queing incoming cid 0x%04x, now %u waiting|10022f58:FUN_10022f58
+1005845c|%s.%u: disconnect, accept queued cid 0x%04x, now %u waiting|10022f58:FUN_10022f58
+10058498|btstack_tlv_flash_bank.c|10029194:FUN_10029194;10029194:FUN_10029194;10028f98:FUN_10028f98;10029078:FUN_10029078;100292b4:FUN_100292b4;100292b4:FUN_100292b4;100292b4:FUN_100292b4;100292b4:FUN_100292b4;100295d0:FUN_100295d0;100295d0:FUN_100295d0;100295d0:FUN_100295d0;100295d0:FUN_100295d0;100295d0:FUN_100295d0;100295d0:FUN_100295d0;100294ac:FUN_100294ac;100294ac:FUN_100294ac
+100584b4|%s.%u: Found tag '%x' at position %u|10028f98:FUN_10028f98
+100584dc|%s.%u: Erase tag '%x' at position %u|10029078:FUN_10029078
+10058504|%s.%u: test erased: bank %u, offset %u|10029194:FUN_10029194
+1005852c|%s.%u: not erased %x - %x|10029194:FUN_10029194
+10058548|%s.%u: migrate bank %u -> bank %u|100292b4:FUN_100292b4
+1005856c|%s.%u: bank %u already erased|100292b4:FUN_100292b4;100295d0:FUN_100295d0
+1005858c|%s.%u: bank %u not empty, erase bank|100292b4:FUN_100292b4;100295d0:FUN_100295d0
+100585b4|%s.%u: migrate pos %u, tag '%x' len %u -> new pos %u|100292b4:FUN_100292b4
+100585ec|BTstack|100292b4:FUN_100292b4;100295d0:FUN_100295d0
+100585f4|%s.%u: couldn't write entry, not enough space left|100294ac:FUN_100294ac
+10058628|%s.%u: write '%lx', len %lu at %lx|100294ac:FUN_100294ac
+1005864c|%s.%u: found bank %d|100295d0:FUN_100295d0
+10058664|%s.%u: Flash not empty after last found tag -> migrate|100295d0:FUN_100295d0
+1005869c|%s.%u: Flash clean after last found tag|100295d0:FUN_100295d0
+100586c4|%s.%u: write offset %lx|100295d0:FUN_100295d0
+100586dc|btstack_crypto.c|100298e0:FUN_100298e0;1002994c:FUN_1002994c;1002994c:FUN_1002994c;1002994c:FUN_1002994c;1002994c:FUN_1002994c;1002994c:FUN_1002994c;1002aa6e:FUN_1002aa6e;1002aa6e:FUN_1002aa6e;1002ad10:FUN_1002ad10
+100586f0|%s.%u: sm_generate_f_rng: size %u - offset %u|100298e0:FUN_100298e0
+10058720|%s.%u: Elliptic curve: X|1002994c:FUN_1002994c
+1005873c|%s.%u: Elliptic curve: Y|1002994c:FUN_1002994c
+10058758|%s.%u: start ecc random|1002994c:FUN_1002994c
+10058770|%s.%u: more ecc random|1002994c:FUN_1002994c
+10058788|%s.%u: dhkey|1002994c:FUN_1002994c
+10058798|%s.%u: set uECC RNG for initial key generation with 64 random bytes|1002aa6e:FUN_1002aa6e
+100587dc|%s.%u: controller supports ECDH operation: %u|1002aa6e:FUN_1002aa6e
+1005880c|%s.%u: public key invalid %x|1002ad10:FUN_1002ad10
+1005882c|btstack_run_loop.c|1002b8f4:FUN_1002b8f4;1002b984:FUN_1002b984
+10058840|%s.%u: Timer %p already registered! Please read source code comment.|1002b8f4:FUN_1002b8f4
+10058888|%s.%u: timer %u (%p): timeout %lu\n|1002b984:FUN_1002b984
+100588ac|btstack_tlv.c|1002bad8:FUN_1002bad8
+100588bc|%s.%u: TLV Instance %p|1002bad8:FUN_1002bad8
+100588d4|0123456789ABCDEF|1002c0ec:FUN_1002c0ec;1002c0ec:FUN_1002c0ec;1002c0ec:FUN_1002c0ec;1002c0ec:FUN_1002c0ec;1002c0ec:FUN_1002c0ec;1002c0ec:FUN_1002c0ec;1002c0ec:FUN_1002c0ec;1002c0ec:FUN_1002c0ec;1002c0ec:FUN_1002c0ec;1002c0ec:FUN_1002c0ec;1002c0ec:FUN_1002c0ec;1002c0ec:FUN_1002c0ec;1002c194:FUN_1002c194;1002c194:FUN_1002c194;1002c194:FUN_1002c194;1002c194:FUN_1002c194;1002c194:FUN_1002c194;1002c194:FUN_1002c194;1002c194:FUN_1002c194;1002c194:FUN_1002c194;1002c194:FUN_1002c194;1002c194:FUN_1002c194;1002c194:FUN_1002c194;1002c194:FUN_1002c194;1002bd0c:FUN_1002bd0c;1002bd0c:FUN_1002bd0c;1002bd58:FUN_1002bd58;1002bd58:FUN_1002bd58;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48;1002be48:FUN_1002be48
+100588e8|btstack_util.c|1002be48:FUN_1002be48
+100588f8|%s.%u: %-6s %s|1002be48:FUN_1002be48
+10058908|hci.c|1002d8d0:FUN_1002d8d0;10035150:FUN_10035150;10035150:FUN_10035150;10035150:FUN_10035150;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002da1c:FUN_1002da1c;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002f1e8:FUN_1002f1e8;1002ca00:FUN_1002ca00;1002ca00:FUN_1002ca00;1002f1e8:FUN_1002f1e8;1002eadc:FUN_1002eadc;1002cb20:FUN_1002cb20;1002c380:FUN_1002c380;1002c380:FUN_1002c380;1002c380:FUN_1002c380;1002e48c:FUN_1002e48c;1002e48c:FUN_1002e48c;1002e48c:FUN_1002e48c;1002e48c:FUN_1002e48c;1002dcfc:FUN_1002dcfc;1002cd30:FUN_1002cd30;1002cd30:FUN_1002cd30;1002cd30:FUN_1002cd30;1002cd30:FUN_1002cd30;1002dd74:FUN_1002dd74;100335f4:FUN_100335f4;100335f4:FUN_100335f4;100335f4:FUN_100335f4;100335f4:FUN_100335f4;100335f4:FUN_100335f4;1002ede4:FUN_1002ede4;1002ee4c:FUN_1002ee4c;1002ee4c:FUN_1002ee4c;1002ee4c:FUN_1002ee4c;1002ee4c:FUN_1002ee4c;1002ee4c:FUN_1002ee4c;1002ee4c:FUN_1002ee4c;1002ee4c:FUN_1002ee4c;1002ee4c:FUN_1002ee4c;1002c6c8:FUN_1002c6c8;1002df7c:FUN_1002df7c;1002df7c:FUN_1002df7c;1002df7c:FUN_1002df7c;10033e18:FUN_10033e18;10033e18:FUN_10033e18;10033e18:FUN_10033e18;10030644:FUN_10030644;10030644:FUN_10030644;10030644:FUN_10030644;10030644:FUN_10030644;10030644:FUN_10030644;1002cca8:FUN_1002cca8;10033fe8:FUN_10033fe8;1002d964:FUN_1002d964;10033f94:FUN_10033f94;1002c3e0:FUN_1002c3e0;1002c3e0:FUN_1002c3e0;1002d914:FUN_1002d914;100337c0:FUN_100337c0;100337c0:FUN_100337c0;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1002c908:FUN_1002c908;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002cbb0:FUN_1002cbb0;1002cbb0:FUN_1002cbb0;1002cbb0:FUN_1002cbb0;1002cbb0:FUN_1002cbb0;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002c858:FUN_1002c858;1002c7d4:FUN_1002c7d4;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1002de70:FUN_1002de70;100325b2:caseD_13;10032622:caseD_7
+10058910|%s.%u: hci_power_control_off|1002c380:FUN_1002c380
+10058930|%s.%u: hci_power_control_off - hci_transport closed|1002c380:FUN_1002c380
+10058964|%s.%u: hci_power_control_off - control closed|1002c380:FUN_1002c380
+10058994|%s.%u: state %u, role %u, le_con %u|1002c3e0:FUN_1002c3e0
+100589b8|%s.%u: Num LE Peripheral roles: %u of %u|1002c3e0:FUN_1002c3e0
+100589e4|%s.%u: create_connection_for_addr %s, type %x|1002c6c8:FUN_1002c6c8
+10058a14|%s.%u: BTSTACK_EVENT_NR_CONNECTIONS_CHANGED %u|1002ca00:FUN_1002ca00;1002ee4c:FUN_1002ee4c;100337c0:FUN_100337c0;1002c7d4:FUN_1002c7d4
+10058a44|%s.%u: pairing started, ssp %u, initiator %u, requested level %u|1002c858:FUN_1002c858
+10058a88|%s.%u: hci_emit_security_level %u for handle %x|10035150:FUN_10035150;10035150:FUN_10035150;1002c908:FUN_1002c908
+10058ab8|%s.%u: Connection closed: handle 0x%x, %s|1002ca00:FUN_1002ca00;1002ee4c:FUN_1002ee4c;100337c0:FUN_100337c0
+10058ae4|%s.%u: pairing complete, status %02x|1002cb20:FUN_1002cb20
+10058b0c|%s.%u: Outgoing connection to %s failed|1002cbb0:FUN_1002cbb0
+10058b34|%s.%u: hci notify_dedicated_bonding_failed|1002cbb0:FUN_1002cbb0
+10058b60|%s.%u: hci_emit_dedicated_bonding_result %u |1002cbb0:FUN_1002cbb0;1003107c:FUN_1003107c
+10058b90|%s.%u: gap_drop_link_key_for_bd_addr: %s|1002d8d0:FUN_1002d8d0;1002cbb0:FUN_1002cbb0
+10058bbc|%s.%u: L2CAP_EVENT_TIMEOUT_CHECK|1002cca8:FUN_1002cca8
+10058be0|%s.%u: POWER_ON failed|1002cd30:FUN_1002cd30
+10058bf8|%s.%u: BTSTACK_EVENT_POWERON_FAILED|1002cd30:FUN_1002cd30;1002cd30:FUN_1002cd30
+10058c1c|%s.%u: HCI_INIT failed, turning Bluetooth off again|1002cd30:FUN_1002cd30
+10058c50|%s.%u: local name: %s|1002ce38:FUN_1002ce38
+10058c68|%s.%u: hci_read_buffer_size: ACL size module %u -> used %u, count %u / SCO size %u, count %u|1002ce38:FUN_1002ce38
+10058cc8|%s.%u: hci_le_read_buffer_size_v2: iso size %u, iso count %u|1002ce38:FUN_1002ce38
+10058d08|%s.%u: hci_le_read_buffer_size: acl size %u, acl count %u|1002ce38:FUN_1002ce38
+10058d44|%s.%u: hci_le_read_maximum_data_length: tx octets %u, tx time %u us|1002ce38:FUN_1002ce38
+10058d88|%s.%u: hci_le_read_white_list_size: size %u|1002ce38:FUN_1002ce38
+10058db4|%s.%u: Local Address, Status: 0x%02x: Addr: %s|1002ce38:FUN_1002ce38
+10058de4|%s.%u: Features bit %02u is not set, removing packet types 0x%04x|1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1002ce38:FUN_1002ce38;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c;1003107c:FUN_1003107c
+10058e28|%s.%u: ACL Packet types %04x|1002ce38:FUN_1002ce38
+10058e48|%s.%u: SCO Packet types %04x - eSCO %u|1002ce38:FUN_1002ce38
+10058e70|%s.%u: BR/EDR support %u, LE support %u|1002ce38:FUN_1002ce38
+10058e98|%s.%u: Treat Cypress/Infineon as Broadcom|1002ce38:FUN_1002ce38
+10058ec4|%s.%u: Manufacturer: 0x%04x|1002ce38:FUN_1002ce38
+10058ee0|%s.%u: Command 0x%02x supported %u/%u|1002ce38:FUN_1002ce38
+10058f08|%s.%u: Local supported commands summary %08lx|1002ce38:FUN_1002ce38
+10058f38|%s.%u: Handle %04x key Size: %u|1002ce38:FUN_1002ce38
+10058f58|%s.%u: Read Encryption Key Size failed 0x%02x-> assuming insecure connection with key size of 1|1002ce38:FUN_1002ce38
+10058fbc|%s.%u: gap_store_link_key_for_bd_addr: %s, type %u|1002d914:FUN_1002d914;1003107c:FUN_1003107c
+10058ff0|%s.%u: link key for %s available %u, type %u|1002d964:FUN_1002d964
+10059020|%s.%u: hci_number_free_acl_slots: unknown address type|1002da1c:FUN_1002da1c
+10059058|%s.%u: hci_number_free_acl_slots: handle 0x%04x not in connection list|1002f1e8:FUN_1002f1e8;1002dcfc:FUN_1002dcfc;1002dd74:FUN_1002dd74;1002df7c:FUN_1002df7c
+100590a0|%s.%u: hci_number_free_sco_slots:packets (%u) > total packets (%u)|1002de70:FUN_1002de70
+100590e4|%s.%u: hci_send_acl_packet_buffer called but no free ACL buffers on controller|1002df7c:FUN_1002df7c
+10059134|%s.%u: hci_send_acl_packet_buffer called but no connection for handle 0x%04x|1002df7c:FUN_1002df7c
+10059184|BTstack 00:00:00:00:00:00|1002e2a8:FUN_1002e2a8
+100591a0|%s.%u: Create_connection to %s|1002e48c:FUN_1002e48c
+100591c0|%s.%u: conn state %u|1002e48c:FUN_1002e48c
+100591d8|%s.%u: Possible SCO packet types 0x%04x => payload length %u|1002e48c:FUN_1002e48c
+10059218|%s.%u: Invalid initiator_filter_policy in LE Create Connection %u|1002e48c:FUN_1002e48c
+1005925c|%s.%u: hci_send_cmd called but cannot send packet now|1002eadc:FUN_1002eadc
+10059294|%s.%u: BTSTACK_EVENT_STATE %u|100335f4:FUN_100335f4;1002ede4:FUN_1002ede4
+100592b4|%s.%u: HCI_STATE_HALTING, substate %x\n|1002ee4c:FUN_1002ee4c
+100592dc|%s.%u: HCI_STATE_HALTING, connection %p, handle %u, state %u|1002ee4c:FUN_1002ee4c
+1005931c|%s.%u: HCI_STATE_HALTING: wait 50 ms|1002ee4c:FUN_1002ee4c
+10059344|%s.%u: HCI_STATE_HALTING, calling off|1002ee4c:FUN_1002ee4c
+1005936c|%s.%u: HCI_STATE_HALTING, emitting state|1002ee4c:FUN_1002ee4c
+10059398|%s.%u: HCI_STATE_HALTING, done|1002ee4c:FUN_1002ee4c
+100593b8|%s.%u: Set Public BD ADDR to %s|1002f1e8:FUN_1002f1e8
+100593d8|%s.%u: Init script done|1002f1e8:FUN_1002f1e8
+100593f0|%s.%u: CSR Warm Boot|1002f1e8:FUN_1002f1e8
+10059408|%s.%u: Local baud rate change to %lu after init script (bcm)|1002f1e8:FUN_1002f1e8
+10059448|%s.%u: BCM delay (%u ms) after init script|1002f1e8:FUN_1002f1e8
+10059474|%s.%u: BCM: Route SCO data via HCI transport|1002f1e8:FUN_1002f1e8
+100594a4|%s.%u: hci_init_done -> HCI_STATE_WORKING|1002f1e8:FUN_1002f1e8
+100594d0|%s.%u: HCI_STATE_FALLING_ASLEEP|1002f1e8:FUN_1002f1e8
+100594f0|%s.%u: HCI_STATE_FALLING_ASLEEP, connection %p, handle %u|1002f1e8:FUN_1002f1e8
+1005952c|%s.%u: HCI_STATE_HALTING, disabling inq scans|1002f1e8:FUN_1002f1e8
+1005955c|%s.%u: HCI_STATE_HALTING, calling sleep|1002f1e8:FUN_1002f1e8
+10059584|%s.%u: hci_power_control_sleep|1002f1e8:FUN_1002f1e8;100335f4:FUN_100335f4
+100595a4|%s.%u: sending hci_create_connection|1002f1e8:FUN_1002f1e8
+100595cc|%s.%u: sending hci_le_create_connection|1002f1e8:FUN_1002f1e8
+100595f4|%s.%u: sending hci_accept_connection_request|1002f1e8:FUN_1002f1e8
+10059624|%s.%u: responding to link key request, have link key db: %u|1002f1e8:FUN_1002f1e8
+10059660|%s.%u: denying to pin request|1002f1e8:FUN_1002f1e8
+10059680|%s.%u: Level 4 required, but SC not supported -> abort|1002f1e8:FUN_1002f1e8;1003107c:FUN_1003107c
+100596b8|%s.%u: Dedicated vs. non-bondable -> abort|1002f1e8:FUN_1002f1e8
+100596e4|%s.%u: IOCap/OOB insufficient for level %u -> abort|1002f1e8:FUN_1002f1e8
+10059718|%s.%u: Level 3+ required, but no input/output -> abort|1002f1e8:FUN_1002f1e8
+10059750|%s.%u: gap_mitm_protection_required_for_security_level %u|1002f1e8:FUN_1002f1e8
+1005978c|%s.%u: Remote not bonding, dropping local flag|1002f1e8:FUN_1002f1e8
+100597bc|%s.%u: hci_run: fragmented ACL packet no connection -> discard fragment|1002f1e8:FUN_1002f1e8
+10059804|%s.%u: Resend HCI Reset|10030644:FUN_10030644
+1005981c|%s.%u: Resend HCI Reset - CSR Warm Boot with Link Reset|10030644:FUN_10030644
+10059854|%s.%u: Resend HCI Reset - CSR Warm Boot|10030644:FUN_10030644
+1005987c|%s.%u: Local baud rate change to %lu(timeout handler)|10030644:FUN_10030644
+100598b4|%s.%u: Link Reset|10030644:FUN_10030644
+100598c8|%s.%u: event_handler called with packet of wrong size %d, expected %u => dropping packet|1003107c:FUN_1003107c
+10059924|%s.%u: hci_number_completed_packets, more packet slots freed then sent.|1003107c:FUN_1003107c
+1005996c|%s.%u: Connection_incoming: %s, type %u|1003107c:FUN_1003107c
+10059994|%s.%u: Connection_complete (status=%u) %s|1003107c:FUN_1003107c
+100599c0|%s.%u: New connection: handle %u, %s|1003107c:FUN_1003107c;1003107c:FUN_1003107c
+100599e8|%s.%u: Synchronous Connection Complete for %p (status=%u) %s|1003107c:FUN_1003107c;1003107c:FUN_1003107c
+10059a28|%s.%u: eSCO Complete, set payload len %u|1003107c:FUN_1003107c
+10059a54|%s.%u: Remote features %02x, bonding flags %lx|1003107c:FUN_1003107c;1003107c:FUN_1003107c
+10059a84|%s.%u: SC during pairing, but only E0 now -> abort|1003107c:FUN_1003107c
+10059ab8|%s.%u: drop fragmented ACL data for closed connection, release buffer %u|1003107c:FUN_1003107c
+10059b04|%s.%u: Hardware Error: 0x%02x|1003107c:FUN_1003107c
+10059b24|%s.%u: Synchronous HCI Transport shouldn't send HCI_EVENT_TRANSPORT_PACKET_SENT|1003107c:FUN_1003107c
+10059b74|%s.%u: LE Connection_complete (status=%u) type %u, %s|1003107c:FUN_1003107c
+10059bac|%s.%u: Command complete for different opcode %04x, expected %04x, at substate %u|1003107c:FUN_1003107c
+10059c00|%s.%u: Command status OK for expected opcode %04x, waiting for command complete|1003107c:FUN_1003107c
+10059c50|%s.%u: Local baud rate change to %lu(w4_send_baud_change)|10032622:caseD_7
+10059c8c|%s.%u: Local baud rate change to %lu(w4_send_baud_change_bcm))|100325b2:caseD_13
+10059ccc|%s.%u: acl_handler called with ACL packet of wrong size %d, expected %u => dropping packet|1003107c:FUN_1003107c
+10059d28|%s.%u: ACL Cont Fragment but no first fragment for handle 0x%02x|1003107c:FUN_1003107c
+10059d6c|%s.%u: ACL Cont Fragment to large: combined packet %u > buffer size %u for handle 0x%02x|1003107c:FUN_1003107c
+10059dc8|%s.%u: ACL First Fragment but %u bytes in buffer for handle 0x%02x, dropping stale fragments|1003107c:FUN_1003107c
+10059e28|%s.%u: ACL First Fragment to large: fragment %u > buffer size %u for handle 0x%02x|1003107c:FUN_1003107c
+10059e7c|%s.%u: acl_handler called with invalid packet boundary flags %u|1003107c:FUN_1003107c
+10059ebc|%s.%u: Start SCO sending, %u packets|1003107c:FUN_1003107c
+10059ee4|%s.%u: Flush occurred, disconnect 0x%04x|1003107c:FUN_1003107c
+10059f10|%s.%u: HCI_EVENT_MODE_CHANGE, handle 0x%04x, mode %u|1003107c:FUN_1003107c
+10059f48|%s.%u: acl_handler called with non-registered handle %u!|1003107c:FUN_1003107c
+10059f84|%s.%u: hci_power_control: %d, current mode %u|100335f4:FUN_100335f4
+10059fb4|%s.%u: hci_power_control_on() error %d|100335f4:FUN_100335f4
+10059fdc|%s.%u: hci_power_control_wake|100335f4:FUN_100335f4
+10059ffc|%s.%u: gap_request_security_level requested level %u, planned level %u, current level %u|10035150:FUN_10035150
+1005a058|%s.%u: le connect already active|10033e18:FUN_10033e18
+1005a07c|%s.%u: gap_connect: failed to alloc hci_connection_t|10033e18:FUN_10033e18
+1005a0b4|%s.%u: gap_connect: send create connection next|10033e18:FUN_10033e18
+1005a0e4|%s.%u: hci_le_set_own_address_type: old %u, new %u|10033f94:FUN_10033f94
+1005a118|%s.%u: gap_privacy: hci_le_random_address_set %s|10033fe8:FUN_10033fe8
+1005a1b4|11114111111111111111111|
+1005a1d4|22222|
+1005a43c|l2cap.c|10035810:FUN_10035810;10035810:FUN_10035810;100350cc:FUN_100350cc;100350cc:FUN_100350cc;100350cc:FUN_100350cc;100350cc:FUN_100350cc;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6;10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954;100361b8:FUN_100361b8;100361b8:FUN_100361b8;100361b8:FUN_100361b8;100361b8:FUN_100361b8;100361b8:FUN_100361b8;100361b8:FUN_100361b8;100361b8:FUN_100361b8;10035214:FUN_10035214;10034a68:FUN_10034a68;10034a68:FUN_10034a68;10035a88:FUN_10035a88;10035a88:FUN_10035a88;100352e4:FUN_100352e4;100352e4:FUN_100352e4;100352e4:FUN_100352e4;100352e4:FUN_100352e4;100352e4:FUN_100352e4;10034b60:FUN_10034b60;100363b0:FUN_100363b0;100363b0:FUN_100363b0;100363b0:FUN_100363b0;100363b0:FUN_100363b0;100363b0:FUN_100363b0;100363b0:FUN_100363b0;100363b0:FUN_100363b0;100363b0:FUN_100363b0;100363b0:FUN_100363b0;100363b0:FUN_100363b0;100363b0:FUN_100363b0;100363b0:FUN_100363b0;10034c24:FUN_10034c24;10035440:FUN_10035440;100394c4:FUN_100394c4;100394c4:FUN_100394c4;10034ce0:FUN_10034ce0;10035d1c:FUN_10035d1c;10035d1c:FUN_10035d1c;1003557c:FUN_1003557c;1003557c:FUN_1003557c;1003557c:FUN_1003557c;1003557c:FUN_1003557c;1003557c:FUN_1003557c;10035de4:FUN_10035de4;10039650:FUN_10039650;10039650:FUN_10039650;10034ea0:FUN_10034ea0;10034ea0:FUN_10034ea0;10034ea0:FUN_10034ea0;10034ea0:FUN_10034ea0;100396c4:FUN_100396c4;100396c4:FUN_100396c4;10039774:FUN_10039774;10039774:FUN_10039774;10039774:FUN_10039774;10034fb0:FUN_10034fb0;10021fc8:FUN_10021fc8;10021fc8:FUN_10021fc8;10021fc8:FUN_10021fc8;10021fc8:FUN_10021fc8;100354d8:FUN_100354d8;10035b14:FUN_10035b14
+1005a444|%s.%u: max_transmit must be >= 1|
+1005a468|%s.%u: retransmission_timeout_ms must be >= 2000 ms|
+1005a49c|%s.%u: monitor_timeout_ms must be >= 12000 ms|
+1005a4cc|%s.%u: local_mtu must be >= 48|
+1005a4ec|%s.%u: num_rx_buffers must be >= 1|
+1005a510|%s.%u: L2CAP_EVENT_CHANNEL_OPENED status 0x%x addr %s handle 0x%x psm 0x%x local_cid 0x%x remote_cid 0x%x local_mtu %u, remote_mtu %u, flush_timeout %u|10034a68:FUN_10034a68
+1005a5a8|%s.%u: ERTM mode %u, fcs enabled %u|10034a68:FUN_10034a68
+1005a5cc|%s.%u: opened le channel status 0x%x addr_type %u addr %s handle 0x%x psm 0x%x local_cid 0x%x remote_cid 0x%x local_mtu %u, remote_mtu %u|10034b60:FUN_10034b60
+1005a658|%s.%u: l2cap_ertm_store_fragment: tx_read_index %u, tx_write_index %u, num stored %u|10034c24:FUN_10034c24
+1005a6b0|%s.%u: l2cap_send_classic_signaling_packet, cannot send|10034ce0:FUN_10034ce0
+1005a6e8|%s.%u: (e)CBM: packet received but no incoming credits|10034ea0:FUN_10034ea0
+1005a720|%s.%u: (e)CBM: packet received larger than MTU|10034ea0:FUN_10034ea0
+1005a750|%s.%u: (e)CBM: fragment larger than local MPS|10034ea0:FUN_10034ea0
+1005a780|%s.%u: (e)CBM: fragments larger than SDU|10034ea0:FUN_10034ea0
+1005a7ac|%s.%u: L2CAP_EVENT_INCOMING_CONNECTION addr %s handle 0x%x psm 0x%x local_cid 0x%x remote_cid 0x%x|10034fb0:FUN_10034fb0
+1005a810|%s.%u: free channel %p, local_cid 0x%04x|100350cc:FUN_100350cc
+1005a83c|%s.%u: l2cap_stop_rtx for local cid 0x%02x|100350cc:FUN_100350cc;10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954;100363b0:FUN_100363b0;100363b0:FUN_100363b0
+1005a868|%s.%u: Stop Retransmission timer|100350cc:FUN_100350cc;100352e4:FUN_100352e4;100352e4:FUN_100352e4
+1005a88c|%s.%u: Stop Monitor timer|100350cc:FUN_100350cc;100380d6:FUN_100380d6
+1005a8a8|%s.%u: create channel %p, local_cid 0x%04x|10035214:FUN_10035214
+1005a8d4|%s.%u: l2cap_ertm_process_req_seq: tx_read_index %u, tx_write_index %u, req_seq %u|100352e4:FUN_100352e4
+1005a928|%s.%u: RR seq %u => packet with tx_seq %u done|100352e4:FUN_100352e4
+1005a958|%s.%u: num_buffers_acked %u|100352e4:FUN_100352e4
+1005a974|%s.%u: L2CAP_EVENT_CHANNEL_CLOSED local_cid 0x%x|100363b0:FUN_100363b0;10035440:FUN_10035440
+1005a9a8|%s.%u: l2cap_rtx_timeout for local cid 0x%02x|100354d8:FUN_100354d8
+1005a9d8|%s.%u: S-Frame: control 0x%04x|1003557c:FUN_1003557c
+1005a9f8|%s.%u: l2cap_send_prepared called without reserving packet first|1003557c:FUN_1003557c;10021fc8:FUN_10021fc8
+1005aa3c|%s.%u: l2cap_send_prepared no channel for cid 0x%02x|1003557c:FUN_1003557c;10021fc8:FUN_10021fc8
+1005aa74|%s.%u: l2cap_send_prepared cid 0x%02x, cannot send|1003557c:FUN_1003557c;10021fc8:FUN_10021fc8
+1005aaa8|%s.%u: I-Frame: fcs 0x%04x|1003557c:FUN_1003557c;10021fc8:FUN_10021fc8
+1005aac4|%s.%u: ERTM mandatory -> reject connection|10035810:FUN_10035810
+1005aaf0|%s.%u: ERTM not supported by remote -> use Basic mode|10035810:FUN_10035810
+1005ab28|%s.%u: l2cap_send_prepared_connectionless called without reserving packet first|10035a88:FUN_10035a88
+1005ab78|%s.%u: l2cap_send_prepared_connectionless handle 0x%02x, cid 0x%02x, cannot send|10035a88:FUN_10035a88
+1005abcc|%s.%u: l2cap_send cid 0x%02x, cannot send|100361b8:FUN_100361b8;100363b0:FUN_100363b0;10035b14:FUN_10035b14
+1005abf8|%s.%u: I-Frame: control 0x%04x|10035d1c:FUN_10035d1c
+1005ac18|%s.%u: Start Retransmission timer|100380d6:FUN_100380d6;10035d1c:FUN_10035d1c
+1005ac3c|%s.%u: len %u, pos %u => payload %u, credits %u|10035de4:FUN_10035de4
+1005ac6c|%s.%u: l2cap_send no channel for cid 0x%02x|100361b8:FUN_100361b8
+1005ac98|%s.%u: l2cap_ertm_send cid 0x%02x, data length exceeds remote MTU.|100361b8:FUN_100361b8
+1005acdc|%s.%u: l2cap_ertm_send cid 0x%02x, fragment store full|100361b8:FUN_100361b8
+1005ad14|%s.%u: l2cap_send cid 0x%02x, data length exceeds remote MTU.|100361b8:FUN_100361b8
+1005ad54|%s.%u: l2cap send, cid 0x%02x, data length exceeds remote MTU.|100361b8:FUN_100361b8
+1005ad94|%s.%u: l2cap send, cid 0x%02x, cannot send|100361b8:FUN_100361b8
+1005adc0|%s.%u: l2cap_start_rtx for local cid 0x%02x|100363b0:FUN_100363b0;100363b0:FUN_100363b0
+1005adec|%s.%u: Send S-Frame: RR %u, final %u|100363b0:FUN_100363b0
+1005ae14|%s.%u: Send S-Frame: RR %u with poll=1 |100363b0:FUN_100363b0
+1005ae3c|%s.%u: Send S-Frame: RNR %u|100363b0:FUN_100363b0
+1005ae58|%s.%u: Send S-Frame: REJ %u|100363b0:FUN_100363b0
+1005ae74|%s.%u: Send S-Frame: SREJ %u|100363b0:FUN_100363b0
+1005ae94|%s.%u: l2cap: sending %u credits|100363b0:FUN_100363b0
+1005aeb8|%s.%u: l2cap_ertm_create_channel addr %s, psm 0x%x, local mtu %u|
+1005aefc|%s.%u: l2cap_create_channel, hci connection already exists|
+1005af38|%s.%u: connection complete con_handle %04x - for channel %p cid 0x%04x|100394c4:FUN_100394c4
+1005af80|%s.%u: Retransmission timeout|
+1005afa0|%s.%u: Retransmit unacknowleged frames|100380d6:FUN_100380d6;100380d6:FUN_100380d6;100380d6:FUN_100380d6
+1005afc8|%s.%u: Start Monitor timer|
+1005afe4|%s.%u: Monitor timeout|
+1005affc|%s.%u: Monitor timer expired & retry count >= max transmit -> disconnect|
+1005b048|%s.%u: l2cap_decline_connection called but local_cid 0x%x not found|100396c4:FUN_100396c4
+1005b08c|%s.%u: remote supported features, channel %p, cid %04x - state %u|
+1005b0d0|%s.%u: security level update for handle 0x%04x|
+1005b100|%s.%u: channel %p, cid %04x - state %u: actual %u >= required %u?|
+1005b144|%s.%u: decline local_cid 0x%x|100396c4:FUN_100396c4
+1005b164|%s.%u: L2CAP signaling handler code %u, state %u|10037954:FUN_10037954
+1005b198|%s.%u: l2cap_start_ertx for local cid 0x%02x|10037954:FUN_10037954;10037954:FUN_10037954
+1005b1c8|%s.%u: Remote MTU %u|10037954:FUN_10037954
+1005b1e0|%s.%u: Remote MTU %u larger than outgoing buffer, only using MTU = %u|10037954:FUN_10037954
+1005b228|%s.%u: Flush timeout: %u ms|10037954:FUN_10037954
+1005b244|%s.%u: FC&C config: tx window: %u, max transmit %u, retrans timeout %u, monitor timeout %u, mps %u|10037954:FUN_10037954
+1005b2a8|%s.%u: l2cap cid %u, unknown option 0x%02x|10037954:FUN_10037954;10037954:FUN_10037954;10037954:FUN_10037954
+1005b2d4|%s.%u: local fcs: %u, remote fcs: %u -> %u|10037954:FUN_10037954
+1005b300|%s.%u: l2cap_signaling_handle_configure_response|10037954:FUN_10037954
+1005b334|%s.%u: Remote MTU %u > max storable ERTM packet, only using MTU = %u|10037954:FUN_10037954
+1005b37c|%s.%u: signaling command incomplete -> drop|100380d6:FUN_100380d6
+1005b3a8|%s.%u: no hci_connection for handle %u|100380d6:FUN_100380d6
+1005b3d0|%s.%u: extended features mask 0x%02x|100380d6:FUN_100380d6
+1005b3f8|%s.%u: fixed channels mask 0x%02x|100380d6:FUN_100380d6
+1005b41c|%s.%u: signaling command incomplete -> reject|100380d6:FUN_100380d6
+1005b44c|%s.%u: Packet FCS 0x%04x verified|100380d6:FUN_100380d6
+1005b470|%s.%u: FCS mismatch! Packet 0x%04x, calculated 0x%04x|100380d6:FUN_100380d6
+1005b4a8|%s.%u: Control: 0x%04x => Supervisory function %u, ReqSeq %02u|100380d6:FUN_100380d6
+1005b4e8|%s.%u: L2CAP_SUPERVISORY_FUNCTION_RR_RECEIVER_READY|100380d6:FUN_100380d6
+1005b51c|%s.%u: P=F=1 in S-Frame|100380d6:FUN_100380d6
+1005b534|%s.%u: L2CAP_SUPERVISORY_FUNCTION_REJ_REJECT|100380d6:FUN_100380d6
+1005b564|%s.%u: L2CAP_SUPERVISORY_FUNCTION_RNR_RECEIVER_NOT_READY|100380d6:FUN_100380d6
+1005b5a0|%s.%u: L2CAP_SUPERVISORY_FUNCTION_SREJ_SELECTIVE_REJECT|100380d6:FUN_100380d6
+1005b5d8|%s.%u: Control: 0x%04x => SAR %u, ReqSeq %02u, R?, TxSeq %02u|100380d6:FUN_100380d6
+1005b618|%s.%u: SAR: pos %u|100380d6:FUN_100380d6
+1005b62c|%s.%u: State: expected_tx_seq %02u, req_seq %02u|100380d6:FUN_100380d6
+1005b660|%s.%u: payload len %u > max payload %u -> drop packet|100380d6:FUN_100380d6
+1005b698|%s.%u: Received expected frame with TxSeq == ExpectedTxSeq == %02u|100380d6:FUN_100380d6
+1005b6dc|%s.%u: Processing stored frame with TxSeq == ExpectedTxSeq == %02u|100380d6:FUN_100380d6
+1005b720|%s.%u: Store SDU with delta %u|100380d6:FUN_100380d6
+1005b740|%s.%u: Index of packet to store %u|100380d6:FUN_100380d6
+1005b764|%s.%u: Packet buffer already used|100380d6:FUN_100380d6
+1005b788|%s.%u: Received unexpected frame TxSeq %u but expected %u -> send S-SREJ|100380d6:FUN_100380d6
+1005b7d4|%s.%u: Received unexpected frame TxSeq %u but expected %u -> send S-REJ|100380d6:FUN_100380d6
+1005b81c|%s.%u: le dispatch: command 0x%02x, sig id %u, len %u|100380d6:FUN_100380d6
+1005b854|%s.%u: le incoming addr_type %u, addr %s handle 0x%x psm 0x%x local_cid 0x%x remote_cid 0x%x, remote_mtu %u|100380d6:FUN_100380d6
+1005b8c0|%s.%u: credit: new credits caused overrrun for cid 0x%02x, disconnecting|100380d6:FUN_100380d6
+1005b90c|%s.%u: credit: %u credits for 0x%02x, now %u|100380d6:FUN_100380d6
+1005b93c|%s.%u: Retransmission for tx_seq %u requested|100380d6:FUN_100380d6
+1005b96c|%s.%u: credit: no channel for handle 0x%04x/cid 0x%02x|100380d6:FUN_100380d6
+1005b9a4|%s.%u: create channel addr %s psm 0x%x mtu %u -> local mtu %u, sec level %u|100394c4:FUN_100394c4
+1005b9f0|%s.%u: L2CAP_ACCEPT_CONNECTION local_cid 0x%x|10039650:FUN_10039650
+1005ba20|%s.%u: accept called but local_cid 0x%x not found|10039650:FUN_10039650
+1005ba54|%s.%u: L2CAP_REGISTER_SERVICE psm 0x%x mtu %u|10039774:FUN_10039774
+1005ba84|%s.%u: register: no memory for l2cap_service_t|10039774:FUN_10039774
+1005bab4|%s.%u: register: PSM %u already registered|10039774:FUN_10039774
+1005bafc|Failed to send cyw43 hci packet: %d\n|10039ecc:FUN_10039ecc
+1005bb24|Failed to open cyw43 hci controller: %d\n|10039f78:FUN_10039f78
+1005bb50|att_db.c|1003a1d4:FUN_1003a1d4;1003a46c:FUN_1003a46c;1003a46c:FUN_1003a46c;1003a46c:FUN_1003a46c;1003a46c:FUN_1003a46c;1003a46c:FUN_1003a46c;1003a46c:FUN_1003a46c;1003a46c:FUN_1003a46c;1003a46c:FUN_1003a46c;1003a46c:FUN_1003a46c;1003a3b8:FUN_1003a3b8;1003a3b8:FUN_1003a3b8
+1005bb5c|%s.%u: ATT_READ_MULTIPLE_(VARIABLE_)REQUEST: num handles %u|1003a1d4:FUN_1003a1d4
+1005bb98|%s.%u: ATT DB version differs, please regenerate .h from .gatt file or update att_db_util.c|1003a3b8:FUN_1003a3b8
+1005bbf4|%s.%u: att_set_db %p|1003a3b8:FUN_1003a3b8
+1005bc0c|%s.%u: ATT_FIND_INFORMATION_REQUEST: from %04X to %04X|1003a46c:FUN_1003a46c
+1005bc44|%s.%u: ATT_FIND_BY_TYPE_VALUE_REQUEST: from %04X to %04X, type %04X, value: |1003a46c:FUN_1003a46c
+1005bc94|%s.%u: Begin of group, handle 0x%04x|1003a46c:FUN_1003a46c
+1005bcbc|%s.%u: ATT_READ_BY_TYPE_REQUEST: from %04X to %04X, type: |1003a46c:FUN_1003a46c
+1005bcf8|%s.%u: ATT_READ_REQUEST: handle %04x|1003a46c:FUN_1003a46c
+1005bd20|%s.%u: ATT_READ_BLOB_REQUEST: handle %04x, offset %u|1003a46c:FUN_1003a46c
+1005bd58|%s.%u: ATT_READ_BY_GROUP_TYPE_REQUEST: from %04X to %04X, buffer size %u, type: |1003a46c:FUN_1003a46c
+1005bdac|%s.%u: End of group, handle 0x%04x|1003a46c:FUN_1003a46c;1003a46c:FUN_1003a46c
+1005bdd0|att_server.c|1003c14e:FUN_1003c14e;1003c14e:FUN_1003c14e;1003c14e:FUN_1003c14e;1003c14e:FUN_1003c14e;1003c14e:FUN_1003c14e;1003c14e:FUN_1003c14e;1003c14e:FUN_1003c14e;1003c14e:FUN_1003c14e;1003c14e:FUN_1003c14e;1003b850:FUN_1003b850;1003b850:FUN_1003b850;1003b850:FUN_1003b850;1003b850:FUN_1003b850;1003b850:FUN_1003b850;1003b850:FUN_1003b850;1003b850:FUN_1003b850;1003bc78:FUN_1003bc78;1003bc78:FUN_1003bc78
+1005bde0|%s.%u: Store CCC value 0x%04x for handle 0x%04x of remote %s, le device id %d|1003b850:FUN_1003b850
+1005be30|%s.%u: CCC Index %u: Up-to-date|1003b850:FUN_1003b850
+1005be50|%s.%u: CCC Index %u: Store|1003b850:FUN_1003b850
+1005be6c|%s.%u: Store tag index %u failed|1003b850:FUN_1003b850;1003b850:FUN_1003b850
+1005be90|%s.%u: CCC Index %u: Delete|1003c14e:FUN_1003c14e;1003b850:FUN_1003b850
+1005beac|%s.%u: tag_for_empty %lx, tag_for_lowest_seq_nr %lx|1003b850:FUN_1003b850
+1005bee0|%s.%u: drop att pdu 0x%02x as size %u > att_server->request_buffer %u|1003bc78:FUN_1003bc78
+1005bf28|%s.%u: skip att pdu 0x%02x as server not idle (state %u)|1003bc78:FUN_1003bc78
+1005bf64|%s.%u: encrypted key size %u, authenticated %u, secure connection %u|1003c14e:FUN_1003c14e
+1005bfac|%s.%u: Restore CCC values of remote %s, le device id %d|1003c14e:FUN_1003c14e
+1005bfe4|%s.%u: CCC Index %u: Set Attribute handle 0x%04x to value 0x%04x|1003c14e:FUN_1003c14e
+1005c028|%s.%u: SM_EVENT_IDENTITY_RESOLVING_STARTED|1003c14e:FUN_1003c14e
+1005c054|%s.%u: SM_EVENT_IDENTITY_RESOLVING_SUCCEEDED|1003c14e:FUN_1003c14e
+1005c084|%s.%u: SM_EVENT_IDENTITY_RESOLVING_FAILED|1003c14e:FUN_1003c14e
+1005c0b0|%s.%u: SM Pairing started|1003c14e:FUN_1003c14e
+1005c0cc|%s.%u: Clear CCC values of remote %s, le device id %d|1003c14e:FUN_1003c14e
+1005c104|hids_client.c|1003ce4c:FUN_1003ce4c;1003ce4c:FUN_1003ce4c;1003e750:FUN_1003e750
+1005c114|%s.%u: add index %d, id %d, type %d, value handle 0x%02x, properties 0x%02x|1003ce4c:FUN_1003ce4c
+1005c160|%s.%u: not enough storage, increase HIDS_CLIENT_NUM_REPORTS|1003ce4c:FUN_1003ce4c
+1005c19c|%s.%u: %d hid services found, only first %d can be stored, increase MAX_NUM_HID_SERVICES|
+1005c1f8|%s.%u: add external index %d [%d], value handle 0x%02x|
+1005c230|%s.%u: Not enough memory to create client|1003e750:FUN_1003e750
+1005c25c|gatt_client.c|1003f134:FUN_1003f134;1003f134:FUN_1003f134;1003e9dc:FUN_1003e9dc;10040a3c:FUN_10040a3c;1003ed98:FUN_1003ed98;1004161c:FUN_1004161c;1003f7de:FUN_1003f7de;1003f7de:FUN_1003f7de;1003f7de:FUN_1003f7de;1003f7de:FUN_1003f7de;1003f7de:FUN_1003f7de;100412f8:FUN_100412f8;100412f8:FUN_100412f8
+1005c26c|%s.%u: No connection for handle 0x%04x|1003e9dc:FUN_1003e9dc;10040a3c:FUN_10040a3c
+1005c294|%s.%u: GATT client timeout handle, handle 0x%02x|1003ed98:FUN_1003ed98
+1005c2c8|%s.%u: Trigger pairing, current security level %u, required %u\n|1003f134:FUN_1003f134
+1005c308|%s.%u: gatt_client_run: value len %u > MTU %u - 3\n|1003f134:FUN_1003f134
+1005c33c|%s.%u: GATT Client: HCI_EVENT_DISCONNECTION_COMPLETE|1003f7de:FUN_1003f7de
+1005c374|%s.%u: pairing failed, report previous error 0x%x|1003f7de:FUN_1003f7de
+1005c3a8|%s.%u: pairing success, retry operation|1003f7de:FUN_1003f7de
+1005c3d0|%s.%u: re-encryption success, retry operation|1003f7de:FUN_1003f7de
+1005c400|%s.%u: reactive auth with pairing: delete bonding and start pairing|1003f7de:FUN_1003f7de
+1005c444|%s.%u: ENABLE_GATT_FIND_INFORMATION_FOR_CCC_DISCOVERY, state %x|
+1005c484|%s.%u: CCC found %x|
+1005c498|%s.%u: retry not supported for state %x|
+1005c4c0|%s.%u: security error, start pairing|
+1005c4e8|%s.%u: ATT Handler, unhandled response type 0x%02x|
+1005c51c|%s.%u: gatt_client_write_client_characteristic_configuration: GATT_CLIENT_CHARACTERISTIC_NOTIFICATION_NOT_SUPPORTED|100412f8:FUN_100412f8
+1005c590|%s.%u: gatt_client_write_client_characteristic_configuration: GATT_CLIENT_CHARACTERISTIC_INDICATION_NOT_SUPPORTED|100412f8:FUN_100412f8
+1005c604|%s.%u: ATT ERROR 0x%02x mapped to ERROR_CODE_UNSPECIFIED_ERROR|1004161c:FUN_1004161c
+1005c644|le_device_db_tlv.c|100419b8:FUN_100419b8;1004164c:FUN_1004164c;100416b4:FUN_100416b4;100416b4:FUN_100416b4;100416b4:FUN_100416b4;100416b4:FUN_100416b4;100418d4:FUN_100418d4;100418d4:FUN_100418d4;10041a94:FUN_10041a94
+1005c658|%s.%u: btstack_tlv not initialized|1004164c:FUN_1004164c
+1005c67c|%s.%u: index_for_addr %x, index_for_empy %x, index_for_lowest_seq_nr %x|100416b4:FUN_100416b4
+1005c6c4|%s.%u: new entry for index %u|100416b4:FUN_100416b4
+1005c6e4|%s.%u: LE Device DB adding type %u - %s|100416b4:FUN_100416b4
+1005c710|%s.%u: tag store failed|100416b4:FUN_100416b4
+1005c728|%s.%u: LE Device DB set encryption for %u, ediv x%04x, key size %u, authenticated %u, authorized %u, secure connection %u|100418d4:FUN_100418d4
+1005c7a4|%s.%u: Set encryption data failed|100418d4:FUN_100418d4
+1005c7c8|%s.%u: LE Device DB encryption for %u, ediv x%04x, keysize %u, authenticated %u, authorized %u, secure connection %u|100419b8:FUN_100419b8
+1005c840|%s.%u: num valid le device entries %u|10041a94:FUN_10041a94
+1005c8dc|%s.%u: f4 key|10041c18:FUN_10041c18
+1005c8ec|%s.%u: f4 message|10041c18:FUN_10041c18
+1005c900|%s.%u: CTKD: SM_BR_EDR_RESPONDER_W4_PAIRING_REQUEST|10041d5c:FUN_10041d5c
+1005c934|%s.%u: CTKD: SM_BR_EDR_INITIATOR_SEND_PAIRING_REQUEST|10041d5c:FUN_10041d5c
+1005c96c|%s.%u: CTKD: SM_BR_EDR_INITIATOR_W4_FIXED_CHANNEL_MASK|10041d5c:FUN_10041d5c
+1005c9ac|%s.%u: g2 key|10041e9c:FUN_10041e9c
+1005c9bc|%s.%u: g2 message|10041e9c:FUN_10041e9c
+1005c9d0|%s.%u: our  address %s type %u|10041f8c:FUN_10041f8c
+1005c9f0|%s.%u: peer address %s type %u|10041f8c:FUN_10041f8c
+1005ca14|%s.%u: %-6s 0x%04x|10042384:FUN_10042384;10042384:FUN_10042384;100422a4:FUN_100422a4;100422a4:FUN_100422a4
+1005ca40|%s.%u: Generated IR key. Store in TLV status: %d|
+1005caa4|%s.%u: gap_random_address_trigger, state %u|10047ab8:FUN_10047ab8;10047b54:FUN_10047b54;10042c98:FUN_10042c98
+1005cad0|%s.%u: Secure pairing: %u|10042df0:FUN_10042df0
+1005caec|%s.%u: SM: have OOB data|10042df0:FUN_10042df0
+1005cb0c|%s.%u: SM: MITM not required by both -> JUST WORKS|10042df0:FUN_10042df0
+1005cb40|%s.%u: sm_setup_tk: master io cap: %u, slave io cap: %u -> method %u|10042df0:FUN_10042df0
+1005cb88|%s.%u: SMP: generation method %u|10042df0:FUN_10042df0
+1005cbac|%s.%u: SC Only mode active but SC not possible|10042df0:FUN_10042df0
+1005cbdc|%s.%u: sm: peer public key invalid|
+1005cc00|%s.%u: sm: device found for IRK, updating|10043110:FUN_10043110
+1005cc2c|%s.%u: sm peer addr type %u, peer addres %s|10043110:FUN_10043110;10043110:FUN_10043110
+1005cc58|%s.%u: device %u, sm peer addr type %u, peer addres %s|10043110:FUN_10043110
+1005cc90|%s.%u: sm: device found for public address, updating|10043110:FUN_10043110
+1005ccc8|%s.%u: sm: store SC LTK (key size %u, authenticated %u)|10043110:FUN_10043110
+1005cd00|%s.%u: sm: set encryption information (key size %u, authenticated %u)|10043110:FUN_10043110
+1005cd48|%s.%u: New IRK for %s (type %u) does not match stored IRK -> delete bonding information|1004342c:FUN_1004342c
+1005cda0|%s.%u: Ignoring received keys, bonding not enabled|1004342c:FUN_1004342c
+1005cdd4|%s.%u: sm_sc_prepare_dhkey_check, DHKEY calculated %u|10046240:FUN_10046240;10043514:FUN_10043514;10046820:FUN_10046820
+1005ce0c|%s.%u: Generated ER key. Store in TLV status: %d|100435d0:FUN_100435d0
+1005ce44|%s.%u: IR from TLV|100435d0:FUN_100435d0
+1005ce60|%s.%u: sm: connection 0x%x released setup context|10046240:FUN_10046240;10046240:FUN_10046240;10046240:FUN_10046240;100437d0:FUN_100437d0;10043bc8:FUN_10043bc8;10043bc8:FUN_10043bc8;100474cc:FUN_100474cc;10046820:FUN_10046820;10046820:FUN_10046820
+1005ce94|%s.%u: sm: generate new ec key|10046240:FUN_10046240;10046240:FUN_10046240;10046240:FUN_10046240;10046240:FUN_10046240;100437d0:FUN_100437d0;10043bc8:FUN_10043bc8;100474cc:FUN_100474cc;10046820:FUN_10046820;10046820:FUN_10046820
+1005cebc|%s.%u: sm_sc_cmac_done: |10043bc8:FUN_10043bc8
+1005ced8|%s.%u: Derived classic link key from LE using h6, type %u|10043bc8:FUN_10043bc8
+1005cf14|%s.%u: Derived LE LTK from BR/EDR Link Key|10043bc8:FUN_10043bc8
+1005cf40|Link Key|10043bc8:FUN_10043bc8
+1005cf4c|%s.%u: sm_sc_cmac_done in state %u|10043bc8:FUN_10043bc8
+1005cf70|%s.%u: ADDRESS_RESOLUTION_SUCCEEDED, index %d|10044030:FUN_10044030
+1005cfa0|%s.%u: peripheral: pairing request local %u, have_ltk %u => trigger_security_request %u|10044030:FUN_10044030;10044030:FUN_10044030
+1005cff8|%s.%u: central: pairing request local %u, remote %u => trigger_pairing %u. have_ltk %u|10044030:FUN_10044030
+1005d050|%s.%u: central: defer enabling encryption for bonded device|10044030:FUN_10044030
+1005d08c|%s.%u: central: enable encryption for bonded device|10044030:FUN_10044030
+1005d0c0|%s.%u: LE Device Lookup: matched resolvable private address|
+1005d0fc|responder|10046240:FUN_10046240
+1005d108|initiator|10046240:FUN_10046240
+1005d114|%s.%u: sm: connection 0x%04x locked setup context as %s, state %u|10046240:FUN_10046240
+1005d158|%s.%u: no connection for handle 0x%04x|10046240:FUN_10046240
+1005d180|%s.%u: cannot send now, requesting can send now event|10046240:FUN_10046240
+1005d1b8|%s.%u: sm_run: state %u|10046240:FUN_10046240
+1005d1d0|%s.%u: f6 key|10046240:FUN_10046240;10046240:FUN_10046240
+1005d1e0|%s.%u: f6 message|10046240:FUN_10046240;10046240:FUN_10046240
+1005d1f4|%s.%u: f5_calculate_salt|10046240:FUN_10046240
+1005d210|%s.%u: f5 key|10046240:FUN_10046240;10046240:FUN_10046240;10046240:FUN_10046240
+1005d220|%s.%u: f5 message for MacKey|10046240:FUN_10046240;10046240:FUN_10046240
+1005d240|%s.%u: f5 message for LTK|10046240:FUN_10046240
+1005d25c|%s.%u: sm: hci_le_start_encryption ediv 0x%04x|10046240:FUN_10046240
+1005d28c|%s.%u: stk method %u, bit num: %u|10046240:FUN_10046240
+1005d2b0|%s.%u: SM_SC_SEND_PAIRING_RANDOM A|10046240:FUN_10046240
+1005d2d4|%s.%u: SM_SC_SEND_PAIRING_RANDOM B|10046240:FUN_10046240
+1005d2f8|%s.%u: SM_SC_SEND_PAIRING_RANDOM B1|10046240:FUN_10046240
+1005d31c|%s.%u: SM_SC_SEND_PAIRING_RANDOM B2|10046240:FUN_10046240
+1005d340|%s.%u: LTK Request: ediv & random are empty, but no stored LTK (IRK Lookup Succeeded)|10046240:FUN_10046240
+1005d398|%s.%u: pairing request but LTK available|10046240:FUN_10046240
+1005d3cc|%s.%u: LTK Request: recalculating with ediv 0x%04x|10046240:FUN_10046240
+1005d400|%s.%u: sm: received ltk request with key size %u, authenticated %u|10046240:FUN_10046240
+1005d444|%s.%u: h6 key|10046240:FUN_10046240;10046240:FUN_10046240;10046240:FUN_10046240
+1005d454|%s.%u: h6 message|10046240:FUN_10046240;10046240:FUN_10046240;10046240:FUN_10046240
+1005d468|%s.%u: h7 key|10046240:FUN_10046240;10046240:FUN_10046240
+1005d478|%s.%u: h7 message|10046240:FUN_10046240;10046240:FUN_10046240
+1005d490|%s.%u: DKG_CALC_IRK started|10046240:FUN_10046240
+1005d4ac|%s.%u: DKG_CALC_DHK started|
+1005d4c8|%s.%u: LE Device Lookup: device %u of %u - type %u, %s|10046240:FUN_10046240
+1005d500|%s.%u: LE Device Lookup: found by { addr_type, address} |10046240:FUN_10046240
+1005d53c|%s.%u: LE Device Lookup: calculate AH|10046240:FUN_10046240
+1005d564|%s.%u: LE Device Lookup: not found|1004661a:FUN_1004661a
+1005d588|%s.%u: LTK Request: IRK Lookup Failed)|10046240:FUN_10046240
+1005d5b0|%s.%u: central: security request - have_ltk %u, encryption %u|10046820:FUN_10046820
+1005d5f0|%s.%u: Ignoring Security Request|10046820:FUN_10046820
+1005d614|%s.%u: Remote PK matches ours|10046820:FUN_10046820
+1005d634|%s.%u: sm: peer public key invalid %x|10046820:FUN_10046820
+1005d65c|%s.%u: public key received, generation method %u|10046820:FUN_10046820
+1005d690|%s.%u: SM_SC_W4_PAIRING_RANDOM, responder: %u, just works: %u, passkey used %u, passkey entry %u|10046820:FUN_10046820
+1005d6f4|%s.%u: Received nonce, setup local random ra/rb for dhkey check|10046820:FUN_10046820
+1005d734|%s.%u: Reset rb as A does not have OOB data|10046820:FUN_10046820
+1005d760|%s.%u: Use stored rb|10046820:FUN_10046820
+1005d778|%s.%u: Reset ra as B does not have OOB data|10046820:FUN_10046820
+1005d7a4|%s.%u: Use stored ra|10046820:FUN_10046820
+1005d7bc|%s.%u: Unexpected PDU %u in SM_PH3_RECEIVE_KEYS|10046820:FUN_10046820;10046820:FUN_10046820
+1005d7ec|%s.%u: Unexpected PDU %u in state %u|10046820:FUN_10046820
+1005d814|%s.%u: SM timeout|100474cc:FUN_100474cc
+1005d828|%s.%u: sm_request_pairing in role %u, state %u|10047774:FUN_10047774
+1005d858|%s.%u: have ltk %u|10047774:FUN_10047774
+1005d86c|%s.%u: irk lookup pending|10047774:FUN_10047774
+1005d888|%s.%u: have ltk %u, authenticated %u, auth required %u => reencrypt %u|10047774:FUN_10047774;10047774:FUN_10047774;10047774:FUN_10047774
+1005d8d0|%s.%u: HCI Working!|
+1005d8e4|%s.%u: ER from TLV|
+1005d8f8|%s.%u: Persistent IR not set with sm_set_ir. Use of private addresses will cause pairing issues|
+1005d958|%s.%u: Persistent ER not set with sm_set_er. Legacy Pairing LTK is not secure|
+1005d9a8|%s.%u: Please configure btstack_tlv to let BTstack setup ER and IR keys|
+1005d9f0|%s.%u: SM: reset state|
+1005da08|%s.%u: LTK Request: state %u|
+1005da28|%s.%u: LTK Request: device not in device db|
+1005da54|%s.%u: Encryption state change: %u, key size %u|
+1005da84|%s.%u: event handler, state %u|
+1005daa4|%s.%u: Encryption key refresh complete, key size %u|
+1005dad8|virtual-%d|1004a130:FUN_1004a130
+1005dae4|bp.bt.allow_en|
+1005daf4|bp.bt.allowlist|
+1005db04|bp.ble.enabled|
+1005db14|bp.gap.inq_len|
+1005db24|bp.gap.level|
+1005db34|bp.gap.max_len|
+1005db44|bp.gap.min_len|
+1005db54|bp.mouse.scale|
+1005db64|bp.version|
+1005db70|4.2.0|
+1005db78|bp.virt_dev_en|
+1005db88|Wireless Controller|1004b388:FUN_1004b388
+1005db9c|Controller without name|100488e8:FUN_100488e8
+1005dbd0|Retro-bit Controller|
+1005dbe8|Xbox 360 Wireless Controller|
+1005dc08|PDP Xbox 360 Afterglow|
+1005dc20|PDP Xbox 360 Rock Candy|
+1005dc38|PDP INJUSTICE FightStick|
+1005dc54|PDP INJUSTICE FightPad|
+1005dc6c|PDP EA Soccer Controller|
+1005dc88|PDP Battlefield 4 Controller|
+1005dca8|PDP MK X Fight Stick|
+1005dcc0|PDP Xbox 360 Marvel Controller|
+1005dce0|PDP Xbox 360 Controller|
+1005dcf8|HORI Slime Controller|
+1005dd10|SteelSeries Stratus Duo|
+1005dd28|Amazon Luna Controller|
+1005dd40|Xbox One S Controller|
+1005dd58|Xbox One Elite Controller|
+1005dd74|Xbox One Elite 2 Controller|
+1005dd90|Xbox Adaptive Controller|
+1005ddac|Xbox Series X Controller|
+1005ddc8|PDP Xbox One Afterglow|
+1005dde0|PDP Xbox One Face-Off Controller|
+1005de04|PDP MK X Fight Pad|
+1005e008|PDP Xbox One Crimson Red|
+1005e024|PDP Xbox One Arctic White|
+1005e040|PDP Xbox One Phantom Black|
+1005e05c|PDP Xbox One Ghost White|
+1005e078|PDP Xbox One Revenant Blue|
+1005e094|PDP Xbox One Raven Black|
+1005e0b0|PDP Xbox One Ember Orange|
+1005e0cc|PDP Xbox One GAMEware Controller|
+1005e0f0|PDP Xbox One Royal Purple|
+1005e10c|PDP Kingdom Hearts Controller|
+1005e12c|PDP Xbox One Phantasm Red|
+1005e148|PDP Xbox One Specter Violet|
+1005e164|PDP Xbox One Blu-merang|
+1005e17c|PDP Xbox One Cranblast|
+1005e194|PDP Xbox One Aqualime|
+1005e1ac|PDP Xbox One Red Camo|
+1005e1c4|PDP Xbox One RC Gamepad|
+1005e1dc|PDP Xbox Series X Afterglow|
+1005e1f8|Victrix Gambit Tournament Controller|
+1005e220|PDP Xbox Series X Midnight Blue|
+1005e240|PowerA Xbox Series X Controller|
+1005e260|PowerA Fusion Pro 2 Controller|
+1005e280|PowerA Spectra Infinity Controller|
+1005e2a4|PowerA Xbox One Controller|
+1005e2c0|Navigation Controller|1004cd04:FUN_1004cd04
+1005e2d8|PLAYSTATION(R)3|1004cd04:FUN_1004cd04
+1005e2e8|PLAYSTATION(R)3 Controller|1004cd04:FUN_1004cd04
+1005e304|BM30X mouse|1004e880:FUN_1004e880
+1005e310|Adesso Bluetooth 3.0 Mouse|1004e880:FUN_1004e880
+1005e32c|BORND Bluetooth Mouse|1004e880:FUN_1004e880
+1005e344|Logitech MX Revolution Mouse|1004e880:FUN_1004e880
+1005e364|BM20X-3.0|1004e880:FUN_1004e880
+1005e370|HP Bluetooth Mouse Z5000|1004e880:FUN_1004e880
+1005e38c|ID0078A|1004e880:FUN_1004e880
+1005e398|BT3.0 Mouse|1004e880:FUN_1004e880
+1005e3a4|Bluetooth Mouse M336/M337/M535|1004e880:FUN_1004e880
+1005e3c4|	mouse: scale=%f\n|1004ec2c:FUN_1004ec2c
+1005e3d8|Pro Controller|10050d30:FUN_10050d30;10050d30:FUN_10050d30
+1005e3e8|Joy-Con (L)|10050d30:FUN_10050d30;10050d30:FUN_10050d30
+1005e3f4|Joy-Con (R)|10050d30:FUN_10050d30;10050d30:FUN_10050d30
+1005e400|SNES Controller|10050d30:FUN_10050d30;10050d30:FUN_10050d30
+1005e420|Xbox Wireless Controller|10052368:FUN_10052368
+1005e444|%11[-+0-9A-Za-z]%n|10054ad4:FUN_10054ad4;10054ad4:FUN_10054ad4
+1005e458|%11[A-Za-z]%n|10054ad4:FUN_10054ad4;10054ad4:FUN_10054ad4
+1005e468|%hu%n:%hu%n:%hu%n|10054ad4:FUN_10054ad4;10054ad4:FUN_10054ad4
+1005e47c|M%hu%n.%hu%n.%hu%n|10054ad4:FUN_10054ad4
+1005e490|/%hu%n:%hu%n:%hu%n|10054ad4:FUN_10054ad4
+1005e9d6|? * * * * * * * ?|
+1005f5fc|EFI PART|100143c8:FUN_100143c8
+1005f608|EFI PART|
+1005f9d8|sd_card_detect|10018a70:FUN_10018a70
+1005f9e8|rp2040_sdio_tx_poll|10019634:FUN_10019634
+1005f9fc|sdio_verify_rx_checksums|1001940c:FUN_1001940c;1001940c:FUN_1001940c
+1005fa18|rp2040_sdio_command_R1|10018e88:FUN_10018e88;10018e88:FUN_10018e88;10018e88:FUN_10018e88;10018e88:FUN_10018e88
+1005fa30|check_sdio_write_response|100a09e0:FUN_100a09e0;100a09e0:FUN_100a09e0;200009d0:ram_fn_200009d0;200009d0:ram_fn_200009d0
+1005fbcc|sd_sdio_readSectors|1001a70c:FUN_1001a70c
+1005fbe0|sd_sdio_readSector|1001a5f0:FUN_1001a5f0
+1005fbf4|sd_sdio_writeSectors|1001a448:FUN_1001a448
+1005fc0c|sd_sdio_writeSector|1001a338:FUN_1001a338
+1005fc20|sd_sdio_stopTransmission|1001a234:FUN_1001a234
+1005fc3c|logSDError|10019cec:FUN_10019cec;10019cec:FUN_10019cec;10019cec:FUN_10019cec;1001a234:FUN_1001a234;1001a448:FUN_1001a448;1001a70c:FUN_1001a70c;1001a338:FUN_1001a338;1001a5f0:FUN_1001a5f0
+1005fc48|sd_sdio_begin|10019cec:FUN_10019cec;10019cec:FUN_10019cec;10019cec:FUN_10019cec;10019cec:FUN_10019cec;10019cec:FUN_10019cec
+1005fc58|send_block|1001b250:FUN_1001b250
+1005fc64|sd_init_medium|1001c2fc:FUN_1001c2fc;1001c2fc:FUN_1001c2fc;1001c2fc:FUN_1001c2fc
+1005fc74|sd_card_spi_init|1001c2fc:FUN_1001c2fc;1001c2fc:FUN_1001c2fc
+100762cd|reclaim section %s: Returned %d bytes to the heap\n|
+10076300|Memory usage:\n|
+1007630f|	Text: %ld(%ldK), Data: %ld(%ldK), Bss: %ld(%ldK), Stack: %dK\n|
+1007634e|	Arena total: %d(%dK), Free: %d(%dK), In use: %d(%dK), HWM: %d(%dK)\n|
+10076393|	In use + overhead: %d(%dK), Max memory in use: %ld(%ldK)\n|
+100763ce|	Malloc failure count: %d\n|
+100763e9|	Stack bottom has been overwritten\n|
+1007640d|	Stack bottom: 0x%p, lwm: 0x%p, curr: 0x%p, top: 0x%p\n|
+10076444|	Free stack: 0x%x(%d) lwm: 0x%x(%d)\n|
+10076469|	Inuse stack: 0x%x(%d) hwm: 0x%x(%d)\n|
+1007648f|	In use pool %d(%d): %d(%dK), w/oh: %d(%dK)\n|
+100764bc|	In use - pool: %d(%dK), w/oh: %d(%dK)\n|
+100764e4|	PktId Total: %d, Free: %d, Failed: %d\n|
+10076512|UNIMPL: ra=%p\n|
+10076521|TCAM: %d used: %d exceed:%d\n|
+1007653e|\nFWID 01-%x\nflags %x\n|
+10076554|\nTRAP %x(%x): pc %x, lr %x, sp %x, cpsr %x, spsr %x\n|
+10076589|  r0 %x, r1 %x, r2 %x, r3 %x, r4 %x, r5 %x, r6 %x\n|
+100765bc|  r7 %x, r8 %x, r9 %x, r10 %x, r11 %x, r12 %x\n|
+100765eb|\n   sp+0 %08x %08x %08x %08x\n|
+10076609|  sp+10 %08x %08x %08x %08x\n\n|
+10076627|sp+%x %08x\n|
+10076633|hndarm_armr addr: 0x%x, cr4_idx: %d\n|
+10076658|busstats|
+10076661|btsdiobufaddr|
+1007666f|SSWU: prime does not have p = 3 mod 4|
+100767c2|%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X|
+10076807|Undefined error %d|
+10077d00|spurconfig|
+10077f71|wl%d: %s %s version %s FWID 01-%x\n|
+10077fff|radio_pwrsave |
+10078013|mchan |
+10078021|txpwrcache |
+10078048|bsstrans |
+1007805c|idauth |
+10078075|roam_time_thresh|
+10078120|%s: host_enab %d\n|
+1007813d|btc_dos_status|
+1007826c|CLM DATA|
+100782a0|ClmImport: 1.36.3|
+100782be|Broadcom-0.0|
+100782dc|cntry|
+100782e2|dump_info|
+10078459|DIRECT-|
+1007850e|pkt_filter|
+10078560|SAE Hash to Element u1 P1|
+1007857a|SAE Hash to Element u2 P2|
+10078594|sae_max_pwe_loop|
+100785a5|sae_pwe_hnp_enable|
+100785e8|stf_temp_min_duty_cycle|
+10078600|stf_temp_monitor_time|
+10078616|stf_temp_thresh|
+10078626|idsup|
+10089f28|wlc_bmac_info_init|
+1008af3c|deadman_to|
+1008af47|ramstbydis|
+1008af52|deadman_to|
+1008af5d|spi_pu_enab|
+1008af69|SDIODEV|
+1008af71|gspidword|
+1008af7b|PCMCIADEV|
+1008af85|sd_oobonly|
+1008af90|sd_gpout|
+1008af99|GSPI Dword Mode enabled\n|
+1008afc3|%s: Broadcom SDPCMD CDC driver\n|
+1008aff4|\nRTE (%s-%s%s%s) %s on BCM%s r%d @ %d.%d/%d.%d/%d.%dMHz\n|
+1008b038|notif_c|
+1008b040|notif_s|
+1008b056|pa%dgw%da%d=0x%x|
+1008b088|gainctrlsph=%d|
+1008b0a4|measpower%d=0x%x|
+1008b0b5|rxgains%dg%ctrelnabypa%d=%d|
+1008b0d1|pa2ga%d=0x%x,0x%x,0x%x|
+1008b0e8|rssismc5g=%d|
+1008b0f5|usbflags=0x%x|
+1008b103|pa2gccka%d=0x%x,0x%x,0x%x|
+1008b11d|pdetrange2g=0x%x|
+1008b13d|subvendid=0x%x|
+1008b156|oem=%02x%02x%02x%02x%02x%02x%02x%02x|
+1008b187|tempoffset=%d|
+1008b195|measpower=0x%x|
+1008b1a4|rssismf2g=%d|
+1008b1b1|paparambwver=%d|
+1008b1f2|rssismc2g=%d|
+1008b1ff|pa5gbw40a%d=0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x|
+1008b283|usbutmi_ctl=0x%x|
+1008b294|extpagain2g=0x%x|
+1008b2a5|antswctl2g=0x%x|
+1008b2b5|productname=%s|
+1008b2c4|tx_duty_cycle_thresh_%d_5g=%d|
+1008b2e2|rxgainerr2ga%d=0x%x|
+1008b309|bwduppo=0x%x|
+1008b316|noiselvl5ga%d=%d,%d,%d,%d|
+1008b33c|pa5gbw80a%d=0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x|
+1008b393|pdetrange5g=0x%x|
+1008b3a4|macaddr=%s|
+1008b3af|temps_hysteresis=%d|
+1008b3d3|boardflags2=0x%x|
+1008b3e4|boardflags3=0x%x|
+1008b402|rxgains%dg%ctrisoa%d=%d|
+1008b424|prodid=0x%x|
+1008b430|tempthresh=%d|
+1008b43e|chiprev=%d|
+1008b479|legofdmbw205gmpo=0x%x|
+1008b491|legofdmbw20ul5gmpo=0x%x|
+1008b4e2|temps_period=%d|
+1008b518|dot11agdup%crpo=0x%x|
+1008b538|triso5g=0x%x|
+1008b545|tempsense_slope=%d|
+1008b558|maxp5ga%d=0x%x,0x%x,0x%x,0x%x|
+1008b576|pa1itssit=%d|
+1008b59e|pa5ga%d=0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x|
+1008b5f5|subband5gver=%d|
+1008b605|rssisav5g=%d|
+1008b64b|regrev=0x%x|
+1008b661|noiselvl2ga%d=%d|
+1008b672|usb30regs0=0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x|
+1008b6af|usb30regs1=0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x|
+1008b700|cckdigfilttype=%d|
+1008b712|vendid=0x%x|
+1008b71e|femctrl=%d|
+1008b729|usb30regs%d=0x%x,0x%x,0x%x,0x%x|
+1008b749|pdoffset2g%dma%d=0x%x|
+1008b75f|usbepnum=0x%x|
+1008b76d|pa1himaxpwr=%d|
+1008b77c|rxchain=0x%x|
+1008b789|boardflags=0x%x|
+1008b7b4|txchain=0x%x|
+1008b7c1|rxgains%dg%celnagaina%d=%d|
+1008b808|usbssphy_sleep0=0x%x|
+1008b81d|usbssphy_sleep1=0x%x|
+1008b832|usbssphy_sleep2=0x%x|
+1008b847|usbssphy_sleep3=0x%x|
+1008b85c|leddc=0x%04x|
+1008b876|rssisav2g=%d|
+1008b8a1|extpagain5g=0x%x|
+1008b8c1|tworangetssi%dg=%d|
+1008b8e7|manfid=0x%x|
+1008b8ff|rpcal2g=0x%x|
+1008b9af|boardtype=0x%x|
+1008b9be|antswitch=0x%x|
+1008b9cd|boardnum=%d|
+1008b9d9|rdlid=0x%x|
+1008b9e4|xtalfreq=%d|
+1008b9ff|rxgains%dgelnagaina%d=%d|
+1008ba18|usbssmdio%d=0x%x,0x%x,0x%x,0x%x|
+1008ba38|subdevid=0x%x|
+1008ba73|rxgainerr5ga%d=0x%x,0x%x,0x%x,0x%x|
+1008ba96|pa1lomaxpwr=%d|
+1008baa5|pdoffset%dma%d=0x%x|
+1008bab9|tempcorrx=%d|
+1008bad4|usbnoss=0x%x|
+1008baeb|customvar%d=0x%x|
+1008bafc|tx_duty_cycle_ofdm_%d_5g=%d|
+1008bb20|usbdesc_composite=0x%x|
+1008bb37|tempsense_option=%d|
+1008bb4b|papdcap%dg=%d|
+1008bb87|pdgain%dg=%d|
+1008bbc2|phycal_tempdelta=%d|
+1008bbe9|ccode=0x0|
+1008bbf3|regwindowsz=%d|
+1008bc16|wowl_gpiopol=%d|
+1008bc26|antswctl5g=0x%x|
+1008bc9d|pdoffset2g%dmvalid=0x%x|
+1008bcb5|rxgains%dgtrelnabypa%d=%d|
+1008bccf|boardrev=0x%x|
+1008bcdd|rawtempsense=0x%x|
+1008bcef|usbssphy_utmi_ctl0=0x%x|
+1008bd07|usbssphy_utmi_ctl1=0x%x|
+1008bd1f|usbssphy_utmi_ctl2=0x%x|
+1008bd4b|pa0itssit=%d|
+1008bd58|tssipos5g=0x%x|
+1008bd71|tssiposslope%dg=%d|
+1008bddc|sromrev=%d|
+1008bde7|legofdm40duppo=0x%x|
+1008be0a|devid=0x%x|
+1008be15|rxgains%dgtrisoa%d=%d|
+1008be49|epagain%dg=%d|
+1008be62|wowl_gpio=%d|
+1008be6f|rssismf5g=%d|
+1008be7c|triso2g=0x%x|
+1008be89|tssipos2g=0x%x|
+1008be98|wpsled=%d|
+1008beae|pa5gbw4080a%d=0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x|
+1008bf34|ccode=%c%c|
+1008bf53|Invalid/Unsupported xtal value %d|
+1008bf7a|cldo_burst|
+1008bf9c|xtalfreq|
+1008c2d3|boardtype|
+1008c2dd|prodid|
+1008c2e4|xtalfreq|
+1008c2ed|swdenable|
+1008c2fc|boardflags|
+1008c307|btcxwarflags|
+1008c314|boardflags3|
+1008c320|boardrev|
+1008c329|devid|
+1008c32f|muxenab|
+1008c33d|wl%d: Broadcom BCM%s 802.11 Wireless Controller %s\n|
+1008c371|temp_thort_monitor_time|
+1008c389|tx_minimum_duty_cycle|
+1008c39f|tx_duty_cycle_cck|
+1008c3c3|tempbased_duty_cycle_en|
+1008c3df|tx_duty_cycle_ofdm|
+1008c530|tx_temp_thresh|
+1008c53f|devid|
+1008c545|11n_disable|
+1008c5ae|btc_mode|
+1008c5b7|boardflags|
+1008c5c2|macaddr|
+1008c5ca|ltecxpadnum|
+1008c5d6|vendid|
+1008c5f4|btcxlescan|
+1008c60a|customvar1|
+1008c615|customvar2|
+1008c620|btc_params%d|
+1008c62d|btc_flags|
+1008c637|btcxwarflags|
+1008c644|boardflags2|
+1008c650|boardflags4|
+1008c65c|boardrev|
+1008c665|devid|
+1008c67e|bt_default_ant|
+1008c68d|monitor_time_out|
+1008c69e|btcdyn_default_btc_mode|
+1008c6b6|protected_time_out|
+1008c6c9|btcdyn_msw_row0|
+1008c6d9|btcdyn_msw_row1|
+1008c6e9|btcdyn_msw_row2|
+1008c6f9|btcdyn_dsns_rows|
+1008c70a|btcdyn_coex_two_ant|
+1008c71e|txc_dur_thresh|
+1008c73d|btcdyn_msw_rows|
+1008c74d|btcdyn_dflt_dsns_level|
+1008c764|btcdyn_btrssi_hyster|
+1008c779|prot_btrssi_thresh|
+1008c78c|cts2self_dur_thresh|
+1008c7a0|alert_time_out|
+1008c7af|btcdyn_high_dsns_level|
+1008c7c6|rfa_count_thresh|
+1008c7d7|btcdyn_mid_dsns_level|
+1008c7ed|btcdyn_low_dsns_level|
+1008c803|btcdyn_flags|
+1008c810|btcdyn_dsns_row0|
+1008c821|btcdyn_dsns_row1|
+1008c832|btcdyn_dsns_row2|
+1008c843|btcdyn_dsns_row3|
+1008c854|sco_rssi_thresh|
+1008c864|ccode|
+1008c86d|regrev|
+1008c900|rssicorrnorm|
+1008c90d|cal_period|
+1008c91d|tssilimucod|
+1008c933|tempthresh|
+1008c94f|interference|
+1008c95c|glitch_based_crsmin|
+1008c977|rssicorratten|
+1008c985|phycal_tempdelta|
+1008c996|temps_hysteresis|
+1008c9a7|rssicorrperrg2g|
+1008c9b7|glacialtimer|
+1008c9c4|tssifloor2g|
+1008c9d0|vbat_add|
+1008c9d9|papdvalidtest|
+1008c9e7|swdiv_gpio_1|
+1008c9fd|spurconfig|
+1008ca08|cckdigfilttype|
+1008ca17|eu_edthresh2g|
+1008ca25|red_rxblocking|
+1008cdf3|rcor_aci|
+1008ce01|papdmode|
+1008ce0a|calidxesttarget2g|
+1008ce1c|calidxestbase2g|
+1008ce47|tssitime|
+1008ce50|temp_mult|
+1008d1f3|`?`papdepsoffset|
+1008d204|pacalidx2g|
+1008d21b|ofdmdigfilttypebe|
+1008d22d|cckidxpchoffs|
+1008d23b|temp_add|
+1008d244|swdiv_gpio|
+1008d24f|papdendidx|
+1008d25a|swdiv_swctrl_en|
+1008d603|`?`itssicorr|
+1008d610|swdiv_en|
+1008d626|initxidxpch|
+1008d63e|cckscale|
+1008d647|papdtemp|
+1008d665|cckpwroffset0|
+1008d68d|vbat_mult|
+1008d697|cckinitxidx|
+1008d6ab|ofdmdigfilttype|
+1008d6c2|papdtempbias|
+1008d6cf|lcn20_noisecal_tbl_en|
+1008d707|txpwroffset2g|
+1008df21|ratesel|
+1008df2d|cck_onecore_tx|
+1008df3c|temps_period|
+1008df49|txchain|
+1008df51|rxchain|
+1008df59|swdiv_snrthresh|
+1008df69|swdiv_tx_weight|
+1008df79|swdiv_snrlim|
+1008df86|swdiv_swctrl_mask|
+1008df98|swdiv_ccksnrcorr|
+1008dfa9|swdiv_swctrl_ant0|
+1008dfbb|swdiv_swctrl_ant1|
+1008dfcd|swdiv_weight|
+1008dfda|swdiv_settle|
+1008dfe7|swdiv_en|
+1008dff0|swdiv_rx_policy|
+1008e000|swdiv_cell_policy|
+1008e012|swdiv_swctrl_en|
+1008e022|swdiv_thresh|
+1008e02f|swdiv_gpio_1|
+1008e03c|swdiv_ccknoiseestlim|
+1008e051|swdiv_log2avg|
+1008e05f|swdiv_gpio|
+1008e06a|swdiv_tx_policy|
+1008e07a|swdiv_timeout|
+1008e088|antdiv_rssidiffthresh|
+1008e0a8|wowl_gpiopol|
+1009952a|43439a0-roml/sdio-g-pool-p2p-idsup-idauth-pktfilter-keepalive-aoe-lpc-swdiv-srfast-fuart-btcx-noclminc-clm_min-fbt-mfp-sae-wowlpf-tko-nvd-btsdio Version: 7.95.61 (abcd531 CY) CRC: 4528a809 Date: Wed 2023-01-11 10:29:38 PST Ucode Ver: 1043.2169 FWID 01-7afb0879|
+1009979c|BLOB<|1001f124:FUN_1001f124
+100997d8|CLM DATA|
+100997e6|RaspberryPi.PicoW|
+1009980c|ClmImport: 1.47.1|
+10099b83|manfid=0x2d0|
+10099b90|prodid=0x0727|
+10099b9e|vendid=0x14e4|
+10099bb9|boardtype=0x0887|
+10099bca|boardrev=0x1100|
+10099bda|boardnum=22|
+10099c0b|boardflags=0x00404001|
+10099c21|boardflags3=0x04000000|
+10099c38|xtalfreq=37400|
+10099c5e|ccode=ALL|
+10099c68|pa0itssit=0x20|
+10099c77|extpagain2g=0|
+10099cae|cckpwroffset0=5|
+10099d29|ofdmdigfilttype=18|
+10099d3c|ofdmdigfilttypebe=18|
+10099d51|papdmode=1|
+10099d5c|papdvalidtest=1|
+10099d6c|pacalidx2g=45|
+10099d7a|papdepsoffset=-30|
+10099d8c|papdendidx=58|
+10099da5|ltecxpadnum=0x0102|
+10099db8|ltecxfnsel=0x44|
+10099e04|deadman_to=0xffffffff|
+10099e1a|muxenab=0x100|
+10099e28|spurconfig=0x3|
+10099e37|glitch_based_crsmin=1|
+10099e4d|btc_mode=1|
+10099e64|country|
+10099e70|cur_etheraddr|1001f0ac:FUN_1001f0ac
+10099e88|clmload|1001f124:FUN_1001f124
+10099e94|clmload_status|1001f124:FUN_1001f124
+10099eb8|maxassoc|
+1009a034|JCYW4343A2_001.003.016.0065.0000_Generic_SDIO_37MHz_wlbga_BU_RPI_dl_signed|100206d8:FUN_100206d8
+1009d7df|*Bluepad32\n|
+100a16f4|# THIS IS A SAMPLE PICO2MAPLE CUSTOM CONTROLLER MAPPING CONFIG FILE.\n# TO ENABLE YOUR CUSTOM MAPPING, REMOVE "_sameple" FROM THE FILENAME.\n# CUSTOM CONTROLLER MAPPINGS WILL ONLY BE LOADED FROM THE FILE "pico2maple_controller_map.cfg"\n#\n# A mapping config file is a list of mappings, one per line. Hash symbols (#) are used for comments.\n# Each line should be in the format: <input>: <output>\n# Where <input> is the name of the input button and <output> is the name of the output button.\n#\n# Available inputs are standard xbox-style gamepad buttons:\n#   A, B, X, Y, LB, RB, LT, RT, START\n#   A1_UP/DOWN/LEFT/RIGHT, A2_UP/DOWN/LEFT/RIGHT\n#   DPAD_UP/DOWN/LEFT/RIGHT\n# Available outputs are any Dreamcast controller buttons:\n#   A, B, X, Y, LT, RT, START, C, Z, D\n#   A1_UP/DOWN/LEFT/RIGHT, A2_UP/DOWN/LEFT/RIGHT\n#   DPAD_UP/DOWN/LEFT/RIGHT, DPAD2_UP/DOWN/LEFT/RIGHT\n#\n# Any input can be mapped to any output.\n# Up to 4 inputs can be mapped to the same output e.g. RB and LB both map to B.\n#   In the case of multiple inputs mapped to the same output, the value of the output will be determined in an OR fashion.\n#   E.g. B will be pressed if either of RB *OR* LB is pressed.\n# The same input may be mapped to the multiple outputs e.g. DPAD_UP mapping to A1_UP and DPAD_UP.\n#\n# Analog LEFT/RIGHT and UP/DOWN will cancel each other out if both are activated.\n#\n# Standard Dreamcast mapping\nA: A\nB: B\nX: X\nY: Y\nLT: LT\nRT: RT\nSTART: START\nA1_UP: A1_UP\nA1_DOWN: A1_DOWN\nA1_LEFT: A1_LEFT\nA1_RIGHT: A1_RIGHT\nDPAD_UP: DPAD_UP\nDPAD_DOWN: DPAD_DOWN\nDPAD_LEFT: DPAD_LEFT\nDPAD_RIGHT: DPAD_RIGHT\n# Options: \n#     OPTION_AUTOLOAD: TRUE/FALSE -> tells Pico2Maple whether to use this controller layout on boot\nOPTION_AUTOLOAD: TRUE\n|
