@@ -16,6 +16,7 @@
 #include "pico/time.h"
 #include "oled.h"
 #include "../assets/p2m_assets.h"
+#include "../assets/bootlogo.h"
 
 #define SSD1306_ADDR 0x3C
 #define OLED_I2C     i2c0            // TODO(verify @0x20002b38: i2c instance global)
@@ -126,9 +127,8 @@ void oled_init(bool rotated)
     }
     sleep_ms(50);
 
-    // clear the whole panel
-    uint8_t zero[1024] = {0};
-    ssd1306_send(zero, sizeof zero, 0, 0x7F, 0, 7);
+    // draw the boot splash (full-screen 128x64 1bpp) — replaces the original "Pico2Maple" logo
+    ssd1306_send(g_bootlogo, 1024, 0, 0x7F, 0, 7);
 
     oled_dma_init();
     g_oled_enabled = true;
