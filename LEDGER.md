@@ -52,10 +52,14 @@ Raw image: `pico2maple_flipped-bt_rp2350-arm-s_0x10000000.bin` @ 0x10000000 (668
 - [x] assets (glyphs, root template, sample cfg) — recon/src/assets/p2m_assets.{c,h} (generated, exact)
 - [x] main + core0 loop skeleton — recon/src/main.c (MED, structural)
 - [~] DC layout mapper — recon/src/maple/dc_mapping.c (standard layout HIGH; variants 2/4/5/6 pending byte-exact tables)
-- [ ] TinyUSB host glue (incl. tusb_xinput) + per-controller HID parsers (0x7300–0x8100, 0x10004e94) — NOT STARTED
-- [ ] Bluepad32 platform 9 callbacks + rumble forwarding (0x8140–0x9000) — board sense done; callbacks NOT STARTED
+- [x] TinyUSB host glue (Path B clean) — recon/src/usb/usb_host.{c,h} (per-controller offsets TODO(verify); xinput stubbed)
+- [x] Bluepad32 platform (Path B clean) — recon/src/bt/bp32_platform.{c,h} (uni_* -> p2m_gamepad_t + rumble forward)
+- [x] Maple response-header constants — decoded & inlined in recon/src/maple/maple_frames.h
 - [ ] Puru Puru rumble device emulation detail (0x10007b60/7c14/7c30) — NOT STARTED
+- [ ] Wire USB+BT gamepad merge into main -> custom map -> layout -> Maple condition
+- [ ] Vendor deps (lib/ submodules) + CMake wiring -> first compile for pico2_w
 - [x] CMakeLists / build scaffold (pico-sdk 2.2.0, pico2_w) — recon/CMakeLists.txt
+- See recon/PATH_B.md for the own-firmware architecture and milestones.
 
 ## Response-header constants still to dump/inline (maple.c TODOs)
 DAT_10001eb8 (DEVICE_STATUS hdr), 0x1edc (ALL_STATUS), 0x1ec4 (=0x07000100 ACK), 0x1ec8/0x1ecc/
