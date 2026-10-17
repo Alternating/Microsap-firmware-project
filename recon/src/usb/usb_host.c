@@ -90,6 +90,8 @@ static void parse_gamepad(uint16_t vid, uint16_t pid, const uint8_t *r, uint16_t
         if (b2 & 0x04) gp->g[0x0e] = r[8];  // L2 analog -> LT
         if (b2 & 0x08) gp->g[0x0d] = r[9];  // R2 analog -> RT
         if (b2 & 0x20) gp->g[0x07] = 0xff;  // Options -> START
+        if (b2 & 0x10) gp->g[P2M_MISC] |= P2M_MISC_SELECT;  // Share -> Select (hotkey modifier)
+        if (len > 7 && (r[7] & 0x01)) gp->g[P2M_MISC] |= P2M_MISC_SYSTEM;  // PS button
         return;
     }
 
@@ -113,6 +115,7 @@ static void parse_gamepad(uint16_t vid, uint16_t pid, const uint8_t *r, uint16_t
         if (face & 0x10) gp->g[0x4] = 0xff; // X
         if (face & 0x20) gp->g[0x5] = 0xff; // Y
         if (face & 0x40) gp->g[0x07] = 0xff;// + -> START
+        if (face & 0x80) gp->g[P2M_MISC] |= P2M_MISC_SELECT;  // - -> Select
         return;
     }
 
@@ -130,6 +133,7 @@ static void parse_gamepad(uint16_t vid, uint16_t pid, const uint8_t *r, uint16_t
     if (b & 0x10) gp->g[0x10] = 0xff;  // LB
     if (b & 0x20) gp->g[0x0f] = 0xff;  // RB
     if (b & 0x40) gp->g[0x07] = 0xff;  // START
+    if (b & 0x80) gp->g[P2M_MISC] |= P2M_MISC_SELECT;  // Select
 }
 
 // XInput normalization hook (driver provides the raw XID report elsewhere).

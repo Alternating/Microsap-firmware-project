@@ -55,9 +55,11 @@ Raw image: `pico2maple_flipped-bt_rp2350-arm-s_0x10000000.bin` @ 0x10000000 (668
 - [x] TinyUSB host glue (Path B clean) — recon/src/usb/usb_host.{c,h} (per-controller offsets TODO(verify); xinput stubbed)
 - [x] Bluepad32 platform (Path B clean) — recon/src/bt/bp32_platform.{c,h} (uni_* -> p2m_gamepad_t + rumble forward)
 - [x] Maple response-header constants — decoded & inlined in recon/src/maple/maple_frames.h
-- [ ] Puru Puru rumble device emulation detail (0x10007b60/7c14/7c30) — NOT STARTED
-- [ ] Wire USB+BT gamepad merge into main -> custom map -> layout -> Maple condition
+- [x] Control flow integration — recon/src/control.{c,h}: USB+BT merge -> hotkeys (Select+combos)
+      -> custom map -> dc layout mapper -> DC condition; rumble forward; Puru Puru hooks. Wired into main.
+- [~] Puru Puru rumble: device hooks done (control.c); waveform parse TODO(verify @0x10007c14)
 - [ ] Vendor deps (lib/ submodules) + CMake wiring -> first compile for pico2_w
+- [ ] bt_main.c (cyw43/btstack init: bt_init/bt_ready) + usb xinput glue — stubs referenced by main
 - [x] CMakeLists / build scaffold (pico-sdk 2.2.0, pico2_w) — recon/CMakeLists.txt
 - See recon/PATH_B.md for the own-firmware architecture and milestones.
 

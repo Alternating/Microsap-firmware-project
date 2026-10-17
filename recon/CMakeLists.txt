@@ -16,17 +16,23 @@ pico_sdk_init()
 #   lib/no-OS-FatFS      -> https://github.com/carlk3/no-OS-FatFS-SD-SDIO-SPI-RPi-Pico
 
 add_executable(pico2maple
-    src/main.c
-    src/maple/maple.c           # Maple bus engine (PIO + protocol)
-    src/maple/maple_devices.c   # device-info blocks, controller/mouse/kbd/twinstick/racing
-    src/maple/vmu.c             # Visual Memory emulation (block r/w, LCD, clock)
-    src/maple/purupuru.c        # rumble pack emulation
-    src/storage/sdcard.c        # SD mount, dirs, vmu banks, gameid
-    src/storage/settings.c      # pico2maple_settings.bin
-    src/config/mapping.c        # controller map parser + sample writer
-    src/oled/oled.c             # SSD1306 status display
-    src/usb/usb_host.c          # TinyUSB host glue (incl. xinput)
-    src/bt/bp32_platform.c      # Bluepad32 uni_platform ("BP32 Pico2Maple Platform")
+    src/main.c                  # entry + core0 loop
+    src/control.c               # input -> hotkeys/mapping -> DC condition; rumble forward
+    src/maple/maple.c           # Maple bus engine (PIO + protocol), core1
+    src/maple/vmu.c             # Visual Memory emulation (block r/w, LCD, clock, buzzer)
+    src/maple/dc_mapping.c      # gamepad -> Dreamcast controller condition (layouts)
+    src/storage/sdcard.c        # SD mount, dirs, vmu banks, gameid (FatFs)
+    src/storage/settings.c      # pico2maple_settings.bin + mapping blob
+    src/config/mapping.c        # custom controller-map parser + remap engine
+    src/oled/oled.c             # SSD1306 status display + VMU LCD mirror
+    src/usb/usb_host.c          # TinyUSB host -> p2m_gamepad_t (+ kbd/mouse)
+    src/bt/bp32_platform.c      # Bluepad32 uni_platform -> p2m_gamepad_t + rumble
+    src/board.c                 # pin map + GPIO15 alternate-layout sense
+    src/assets/p2m_assets.c     # glyphs, FAT+root template, sample cfg (generated)
+    src/assets/bootlogo.c       # boot splash (Midwest Mods, 128x64 1bpp)
+    # TODO: still to write for a complete build:
+    #   src/bt/bt_main.c        # cyw43/btstack init, bt_init/bt_ready (0x10008d14/dcc)
+    #   src/usb/xinput.c        # tusb_xinput glue
 )
 
 pico_generate_pio_header(pico2maple ${CMAKE_CURRENT_LIST_DIR}/src/maple.pio)

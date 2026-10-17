@@ -303,8 +303,8 @@ void maple_core1_main(void)
     cfg_mapping_reset(/*map*/ 0);
     if (cfg_write_sample_file(0, 0, 1) == 0) settings_update_field(2, 0, 0);
     // else: settings_read_field(2,...) + cfg_mapping_reset   (TODO(verify @0x100004e2) order)
-    extern int16_t g_active_layout;      // @DAT_10001b90 target
-    extern int16_t g_devinfo_rebuild;    // @DAT_10001bcc ("layout changed" flag)
+    extern volatile int16_t g_active_layout;      // @DAT_10001b90 target
+    extern volatile int16_t g_devinfo_rebuild;    // @DAT_10001bcc ("layout changed" flag)
     if (cfg_custom_map_available(0, 0) && g_devinfo_rebuild == 0)
         { g_active_layout = 5; g_devinfo_rebuild = 1; }
 
@@ -364,7 +364,7 @@ void maple_core1_main(void)
         }
 
         // (c) layout switched? → rebuild controller device-info after a short delay
-        extern int16_t g_active_layout, g_devinfo_rebuild;
+        extern volatile int16_t g_active_layout, g_devinfo_rebuild;
         if (g_devinfo_rebuild) {
             // delayed by DAT_10001bc4 µs then:
             maple_build_device_info_blocks(g_devinfo_payload - 8, g_devinfo_payload,

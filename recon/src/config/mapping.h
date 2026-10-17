@@ -19,9 +19,15 @@
 //   +0x11      A1 horizontal (0x80 center)   +0x12  A1 vertical
 //   +0x13      A2 horizontal                  +0x14  A2 vertical
 //   +0x15..18  digital: DPAD2_UP, DPAD2_DOWN, DPAD2_LEFT, DPAD2_RIGHT
+//   +0x19      misc buttons (NOT seen by the mapper): bit0 Select, bit1 System/Home, bit2 Capture
 typedef struct __attribute__((packed)) {
     uint8_t g[0x20];
 } p2m_gamepad_t;
+
+#define P2M_MISC 0x19           // index of the misc-buttons byte
+#define P2M_MISC_SELECT 0x01
+#define P2M_MISC_SYSTEM 0x02
+#define P2M_MISC_CAPTURE 0x04
 
 // Button/axis IDs (order = the firmware's name table @0x10004b60):
 // 0 A, 1 B, 2 C, 3 D, 4 X, 5 Y, 6 Z, 7 START, 8 LB, 9 RB,

@@ -7,6 +7,7 @@
 #include "board.h"
 #include "storage/storage.h"
 #include "maple/maple.h"
+#include "control.h"
 
 // cross-module entry points
 extern void maple_core1_main(void);                 // 0x10000298 (runs on core1)
@@ -51,6 +52,8 @@ int main(void)
     bt_init();                            // 0x10008d14 ("failed to initialise cyw43_arch" on err)
     while (!bt_ready()) tight_loop_contents();      // 0x10008dcc
     cyw43_poll_init();                    // 0x1000723c
+
+    control_init();                       // load settings + custom map now that SD/flash are up
 
     // 300ms USB settle window before first poll (from the time_us_64 gate at 0x10000308 head)
     uint64_t t0 = time_us_64();

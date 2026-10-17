@@ -56,8 +56,10 @@ static void gamepad_to_p2m(const uni_gamepad_t *gp, p2m_gamepad_t *out)
     if (gp->buttons & BUTTON_TRIGGER_L)  out->g[0x0e] = 0xff;  // digital L2 fallback
     if (gp->buttons & BUTTON_TRIGGER_R)  out->g[0x0d] = 0xff;  // digital R2 fallback
 
-    if (gp->misc_buttons & MISC_BUTTON_START) out->g[0x07] = 0xff;
-    // MISC_BUTTON_SELECT is used as the device's hotkey modifier upstream (Select+btn combos).
+    if (gp->misc_buttons & MISC_BUTTON_START)   out->g[0x07] = 0xff;
+    if (gp->misc_buttons & MISC_BUTTON_SELECT)  out->g[P2M_MISC] |= P2M_MISC_SELECT;  // hotkey mod
+    if (gp->misc_buttons & MISC_BUTTON_SYSTEM)  out->g[P2M_MISC] |= P2M_MISC_SYSTEM;
+    if (gp->misc_buttons & MISC_BUTTON_CAPTURE) out->g[P2M_MISC] |= P2M_MISC_CAPTURE;
 }
 
 // --- uni_platform callbacks (match p2m_bp32_* in the original) ---
