@@ -11,3 +11,10 @@
 /.claude/
 
 # Reference clones / toolchain live outside the repo (/app/data/home/{refs,tools})
+
+# CMake build tree
+/recon/build/
+
+# stray toolchain tarballs
+*.tar.xz
+*.tar.gz

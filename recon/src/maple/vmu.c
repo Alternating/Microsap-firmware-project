@@ -18,11 +18,17 @@ extern void vmu_lcd_upscale(const uint8_t *lcd_fb);
 // bp32/board module
 extern void buzzer_set(uint8_t a, uint8_t b, int mode);                  // 0x1000811c
 // storage module
-extern int  sd_write_file(const char *path, const void *data, size_t len, int flags); // 0x10003b60
-extern int  gameid_vmu_load(vmu_state_t *v);                             // via 0x10003bf4 path
-extern int  gameid_vmu_write(vmu_state_t *v, uint32_t off, const void *d, size_t n); // 0x10003bf4
-extern int  vmu_bank_file_load(vmu_state_t *v);                          // via 0x10003abc path
-extern int  vmu_bank_file_write(uint8_t bank, uint32_t off, const void *d, size_t n); // 0x10003bc8
+extern int  sd_read_file(const char *path, void *buf, size_t len);                    // 0x10003a50
+extern int  sd_write_file(const char *path, const void *data, size_t len, uint32_t offset); // 0x10003b60
+extern int  vmu_bank_file_read(uint8_t bank, void *buf);                               // 0x10003abc
+extern int  vmu_bank_file_write(uint8_t bank, uint32_t offset, const void *buf, size_t len); // 0x10003bc8
+extern int  gameid_vmu_read(const char gameid[12], uint32_t bank_index, void *buf);    // 0x10003ae0
+extern int  gameid_vmu_write(const char gameid[12], uint32_t bank_index, uint32_t offset,
+                             const void *buf, size_t len);                             // 0x10003bf4
+
+// thin adapters so the VMU engine can load/save using its own state struct
+static int vmu_bank_file_load(vmu_state_t *v) { return vmu_bank_file_read(v->bank, v->image); }
+static int gameid_vmu_load(vmu_state_t *v)    { return gameid_vmu_read(v->gameid, 0, v->image); }
 extern uint8_t g_settings_storage_pref;                                  // @0x2000fd6b
 extern queue_t g_sd_write_queue;                                         // @0x2000fc28
 
@@ -101,8 +107,8 @@ void vmu_format_bank(vmu_state_t *v)
             vmu_bank_file_write(v->bank, 0, v->image, 0x20000);
             vmu_bank_file_write(v->bank, 0x1FC00, g_vmu_root_template, 0x400);
         } else {
-            gameid_vmu_write(v, 0, v->image, 0x20000);
-            gameid_vmu_write(v, 0x1FC00, g_vmu_root_template, 0x400);
+            gameid_vmu_write(v->gameid, 0, 0, v->image, 0x20000);
+            gameid_vmu_write(v->gameid, 0, 0x1FC00, g_vmu_root_template, 0x400);
         }
     }
 }

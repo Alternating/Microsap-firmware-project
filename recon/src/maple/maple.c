@@ -31,20 +31,23 @@
 extern uint8_t g_maple_pin;                       // = 6 in this flipped build
 // @0x2000fd4b: Maple port/unit number captured from the last host frame (bits 7:6 of AP)
 static uint8_t g_maple_port;
+// set to 1 by core1 once the Maple engine has finished initializing (core0 waits on it)
+volatile uint8_t g_core1_ready;
 // @0x20001668: attached sub-peripheral mask (P2M_SUBPERIPH_*); also patches sender AP on TX
 uint8_t g_subperiph_mask;
 // @0x2000e970: RX frame buffer (0x400 bytes: len,src,dst,cmd + payload + xor)
 static uint8_t g_rx_buf[0x400];
 // @0x2000f98c: TX staging buffer (header + byte-swapped payload + checksum)
 static uint8_t g_tx_buf[0x400 + 8];
-// @0x20005e2c / @0x20005e68: controller / mouse condition blocks (filled by dc_mapping.c)
+// @0x20005e2c / @0x20005e68: controller / mouse condition blocks.
+// Controller cond is defined in dc_mapping.c (its producer); the rest live here (the engine owns them).
 extern dc_controller_cond_t g_dc_controller_cond;
-extern dc_mouse_cond_t g_dc_mouse_cond;
+dc_mouse_cond_t g_dc_mouse_cond;
 // @0x20006b20 (+ body) : current DEVICE_STATUS payload, rebuilt on layout switch
-extern uint8_t g_devinfo_payload[112];
+uint8_t g_devinfo_payload[112];
 // keyboard condition block + feed queue (queue_init(q, 12, 5) with claimed spinlock, @core1 init)
-extern uint8_t g_dc_kbd_cond[16];
-extern queue_t g_kbd_queue;
+uint8_t g_dc_kbd_cond[16];
+queue_t g_kbd_queue;
 
 // Cross-module (other reconstruction units)
 extern void sd_ensure_dirs(void);                           // 0x100039d0
@@ -55,16 +58,16 @@ extern void vmu_load_bank(uint8_t *vmu_buf, int bank, int gameid, ...); // 0x100
 extern void vmu_load_gameid_bank(uint8_t *vmu_buf, int flags);          // 0x10002aa0
 extern void vmu_bank_cycle(uint8_t *vmu_buf, bool forward, uint32_t t_lo, uint32_t t_hi); // 0x10002ac4
 extern void vmu_flush_dirty(uint8_t *vmu_buf, ...);         // 0x1000278c
-extern void vmu_get_media_info(uint8_t *vmu_buf);           // 0x10002250
 extern void vmu_block_read(uint8_t *vmu_buf, uint32_t addr);// 0x10002748
 extern void vmu_block_write(uint8_t *vmu_buf, uint32_t addr, const void *data, int words); // 0x100028a4
 extern void vmu_lcd_write(uint8_t *vmu_buf, uint32_t addr, const void *data, int words);   // 0x1000290c
-extern void vmu_lcd_render(uint8_t *vmu_buf);               // 0x100028f4 (mirror to OLED)
 extern int  vmu_set_condition(uint8_t *vmu_buf, const void *cond, int len); // 0x10002bbc (buzzer)
 extern int  vmu_gameid_store(uint8_t *vmu_buf, const void *payload, int len); // 0x10002b44
 extern void vmu_storage_enable(int en);                     // 0x10003938
 extern void vmu_invalidate(void);                           // 0x10002eb8
-extern void oled_init_or_status(int);                       // 0x10002d64 TODO(verify): early init call
+extern void vmu_media_info_build(void *v);                  // 0x10002250
+extern int  vmu_lcd_render_notify(void *v);                 // 0x100028f4
+extern void oled_init(bool rotated);          // 0x10002d64
 extern int  rumble_get_cond(void *a, void *b);              // 0x10007c30
 extern void rumble_set_block(void *a, void *b);             // 0x10007c14 (BLOCK_WRITE func 0x100)
 extern void rumble_start(void *a, void *b);                 // 0x10007b60 (SET_CONDITION func 0x100)
@@ -79,9 +82,6 @@ extern int  settings_get(void *s, int field, void *out);    // 0x100040d0
 extern int  settings_update_field(int field, const void *v, int x); // 0x10004120
 extern int  settings_read_field(int field, void *v, int x); // 0x10004218
 // config (mapping module)
-extern void cfg_mapping_reset(void *m);                     // 0x1000431c
-extern int  cfg_write_sample_file(void *a, void *b, int c); // 0x10004d60
-extern int  cfg_custom_map_available(void *m, int x);       // 0x10004dc4
 
 // ---- Hotkey-side requests ------------------------------------------------------
 // @0x2000????: pending bank-switch request (0 = none, +1/-1) — set by mapper hotkeys.
@@ -245,13 +245,15 @@ void maple_core1_main(void)
 {
     static maple_pio_ctx_t rx_ctx = { pio0, 0, 0 };
     static maple_pio_ctx_t tx_ctx = { pio1, 0, 0 };
-    uint8_t vmu_buf[131264];             // auStack_20468
+    // 128KB VMU image: static (.bss) rather than on core1's stack (the original kept it on the
+    // stack, which needs a custom core1 stack region; a static buffer is cleaner for our build).
+    static uint8_t vmu_buf[131264];      // auStack_20468
     uint8_t settings[256];               // auStack_20568
     uint8_t devinfo_hdr[8];              // auStack_20624 (vmu devinfo hdr+ptr pair)
     uint8_t lcd_info[15], media_hdr[28], blk_resp[524], allstat[192];
 
     multicore_lockout_victim_init();     // 0x1000a954 TODO(verify identity)
-    oled_init_or_status(1);              // 0x10002d64(1)
+    oled_init(false);                // TODO(verify): rotation from settings              // 0x10002d64(1)
     sd_ensure_dirs();
 
     // Maple pins: pull-ups on, SDCKB SIO-output-disabled (bus idles pulled high)
@@ -280,33 +282,12 @@ void maple_core1_main(void)
     g_subperiph_mask |= P2M_SUBPERIPH_VMU;
     usb_announce(/*DAT_10001b80*/ 0);
 
-    // Settings: load or write defaults; gameid mode selects per-game VMU bank
-    if (settings_load(settings, 1) == 0) {
-        settings_defaults(settings);
-        settings_set(settings, 1, /*default bank*/ 0);
-        // if settings version/flag == 2: also set field 8 (TODO(verify @0x10000454))
-        settings_save(settings, 1);
-    }
-    char gameid[140] = {0};
-    if (settings_get(settings, 4, gameid) == 0) gameid[0] = 0;
-    uint8_t gid_mode = 0;
-    if (gameid[0] && settings_get(settings, 8, &gid_mode) && gid_mode) {
-        vmu_load_gameid_bank(vmu_buf, 0);
-    } else {
-        uint8_t bank = 0;
-        if (settings_get(settings, 1, &bank)) vmu_load_bank(vmu_buf, bank, 0, &bank);
-        else                                  vmu_load_bank(vmu_buf, 0, 0);
-    }
-
-    // Custom mapping: ensure sample cfg exists; load custom map (SD or flash slot
-    // @0x103FC000); honor autoload → layout 5 + devinfo rebuild
-    cfg_mapping_reset(/*map*/ 0);
-    if (cfg_write_sample_file(0, 0, 1) == 0) settings_update_field(2, 0, 0);
-    // else: settings_read_field(2,...) + cfg_mapping_reset   (TODO(verify @0x100004e2) order)
-    extern volatile int16_t g_active_layout;      // @DAT_10001b90 target
-    extern volatile int16_t g_devinfo_rebuild;    // @DAT_10001bcc ("layout changed" flag)
-    if (cfg_custom_map_available(0, 0) && g_devinfo_rebuild == 0)
-        { g_active_layout = 5; g_devinfo_rebuild = 1; }
+    // Settings load + custom-map load now live on core0 in control_init(); core1 just loads the
+    // default VMU bank. The gameid/bank selection re-runs once control_init() sets the prefs and
+    // bumps g_devinfo_rebuild. (See control.c; this split is a Path-B change from the original,
+    // which did all of this on core1.)
+    (void)settings;
+    vmu_load_bank(vmu_buf, 0, false);
 
     // ---- PIO bring-up (exact register values preserved) ----
     rx_ctx.offset = pio_add_program(pio0, &maple_rx_program);
@@ -342,8 +323,9 @@ void maple_core1_main(void)
     hw_clear_bits(&pio1->ctrl, 1u << 0);   // enable+disable: TX armed but idle
 
     memset(g_rx_buf, 0, 0x400);
-    extern uint8_t g_storage_announce;     // @DAT_10001bb0
+    static uint8_t g_storage_announce;     // @DAT_10001bb0
     g_storage_announce = 1;
+    g_core1_ready = 1;              // signal core0 that the Maple engine is up
 
     // ---- Protocol loop ----
     uint32_t frames_lo = 0, frames_hi = 0;
@@ -424,7 +406,7 @@ void maple_core1_main(void)
             break;
         case MAPLE_CMD_GET_MEDIA_INFO:
             if (to_vmu && func == MAPLE_FUNC_STORAGE) {
-                vmu_get_media_info(vmu_buf);
+                vmu_media_info_build((void*)vmu_buf);
                 out.payload = media_hdr; maple_tx_frame(&tx_ctx, &out);
             } else if (to_vmu && func == MAPLE_FUNC_LCD) {
                 out.payload = lcd_info; maple_tx_frame(&tx_ctx, &out);
@@ -448,7 +430,7 @@ void maple_core1_main(void)
                 goto ack;
             } else if (to_vmu && func == MAPLE_FUNC_LCD) {
                 vmu_lcd_write(vmu_buf, *(const uint32_t *)(f + 8), f + 12, len - 2);
-                vmu_lcd_render(vmu_buf);
+                vmu_lcd_render_notify((void*)vmu_buf);
                 goto ack;
             } else if (to_rumble && func == MAPLE_FUNC_VIBRATION) {
                 rumble_set_block(0, 0);
@@ -469,16 +451,12 @@ void maple_core1_main(void)
             break;
         case MAPLE_CMD_GAMEID:                          // OpenMenu/GDEMU GameID (custom)
             if (!to_vmu) break;
-            if (vmu_gameid_store(vmu_buf, f + 4, len) == 0) {
-                char mode; settings_get(settings, 4, gameid);
-                goto ack_then_gid;
-            }
-            goto ack;
-        ack_then_gid:
+            if (vmu_gameid_store(vmu_buf, f + 4, len) != 0)
+                goto ack;
+            // ack_then_gid: acknowledge, then switch to the per-game VMU bank if gameid mode is on
             maple_tx_frame(&tx_ctx, /*ACK 0x07000100*/ &out);
             { char en = 0;
-              if (settings_read_field(8, &en, 0) && en) vmu_load_gameid_bank(vmu_buf, 1); }
-            settings_save(settings, 1);
+              if (settings_read_field(8, &en, true) && en) vmu_load_gameid_bank(vmu_buf, 1); }
             break;
         ack:
             out.header = 0x07000100; out.payload = 0;

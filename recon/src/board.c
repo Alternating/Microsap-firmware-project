@@ -25,7 +25,7 @@ uint8_t g_oled_sda_pin;   // = g_pins.oled_sda
 uint8_t g_oled_scl_pin;   // = g_pins.oled_scl
 
 // from 0x10008140
-void board_init(void)
+void p2m_board_init(void)
 {
     // Configure GPIO15 as a pulled-up input and let it settle.
     gpio_init(15);
@@ -61,4 +61,26 @@ void board_init(void)
 
     // The remainder of FUN_10008140 seeds the cyw43/BTstack gpio descriptor from these pins
     // (see bp32 module). Not reproduced here — that belongs to bp32_platform.c.
+}
+
+// VMU buzzer (0x1000811c): drive a PWM tone on the buzzer pin. Called from vmu_set_condition
+// with the SET_CONDITION bytes. TODO(verify @0x1000811c): exact freq/duty derivation.
+#include "hardware/pwm.h"
+void buzzer_set(uint8_t a, uint8_t b, int mode)
+{
+    (void)mode;
+    uint pin = g_pins.buzzer;
+    if (a == 0 && b == 0) {                    // stop
+        gpio_set_function(pin, GPIO_FUNC_SIO);
+        gpio_put(pin, 0);
+        return;
+    }
+    gpio_set_function(pin, GPIO_FUNC_PWM);
+    uint slice = pwm_gpio_to_slice_num(pin);
+    // Puru Puru buzzer: byte pair encodes a tone. Map to a rough PWM frequency.
+    uint32_t div = 1 + a;                      // coarse pitch from the first byte
+    pwm_set_clkdiv(slice, (float)div);
+    pwm_set_wrap(slice, 1000);
+    pwm_set_gpio_level(pin, 500);              // ~50% duty
+    pwm_set_enabled(slice, true);
 }

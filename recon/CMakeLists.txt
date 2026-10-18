@@ -1,63 +1,100 @@
-# Reconstruction build scaffold for pico2maple (RP2350 / Pico 2 W, "flipped-bt" variant)
-# Matches the original's stack: pico-sdk 2.2.0, TinyUSB host, Bluepad32 (cluoma fork),
-# BTstack, cyw43-driver, carlk3 no-OS-FatFS-SD-SDIO-SPI-RPi-Pico.
+# Pico2Maple-compatible firmware (Path B) — RP2350 / Pico 2 W, pico-sdk 2.2.0.
+# Integrates: TinyUSB host (USB pads/kbd/mouse), Bluepad32 + BTstack + cyw43 (BT),
+# no-OS-FatFS-SD (microSD), and our Maple engine / VMU / OLED / config.
 cmake_minimum_required(VERSION 3.13)
+
+# --- external component roots (override on the command line for your own checkout) ---
+set(PICO_SDK_PATH   "$ENV{PICO_SDK_PATH}"   CACHE PATH "pico-sdk 2.2.0")
+set(BLUEPAD32_ROOT  "$ENV{BLUEPAD32_ROOT}"  CACHE PATH "ricardoquesada/bluepad32 5.x (+ external/btstack)")
+set(SDFATFS_ROOT    "$ENV{SDFATFS_ROOT}"    CACHE PATH "carlk3 no-OS-FatFS-SD")
+set(TUSB_XINPUT_ROOT "$ENV{TUSB_XINPUT_ROOT}" CACHE PATH "Ryzee119/tusb_xinput (optional)")
+if(NOT PICO_SDK_PATH)
+    message(FATAL_ERROR "Set PICO_SDK_PATH to a pico-sdk 2.2.0 checkout")
+endif()
+# Bluepad32 5.x needs BTstack v1.8.2+ (has hids_host); pico-sdk bundles an older one.
+# Use the btstack that bluepad32 pins (its external/btstack submodule) via PICO_BTSTACK_PATH.
+if(NOT BTSTACK_ROOT)
+    set(BTSTACK_ROOT ${BLUEPAD32_ROOT}/external/btstack)
+endif()
+set(PICO_BTSTACK_PATH ${BTSTACK_ROOT})
+# Files new in btstack v1.8 that pico-sdk's source list doesn't yet include.
+set(BTSTACK_MISSING_SOURCES ${BTSTACK_ROOT}/src/hci_event_builder.c)
 
 set(PICO_BOARD pico2_w)
 set(PICO_PLATFORM rp2350-arm-s)
 
-include(pico_sdk_import.cmake)          # pico-sdk 2.2.0
+include(pico_sdk_import.cmake)
 project(pico2maple C CXX ASM)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
 
-# External libs (populate as git submodules in lib/)
-#   lib/bluepad32        -> https://github.com/cluoma/bluepad32 (the author's own public fork)
-#   lib/tusb_xinput      -> https://github.com/Ryzee119/tusb_xinput
-#   lib/no-OS-FatFS      -> https://github.com/carlk3/no-OS-FatFS-SD-SDIO-SPI-RPi-Pico
-
 add_executable(pico2maple
-    src/main.c                  # entry + core0 loop
-    src/control.c               # input -> hotkeys/mapping -> DC condition; rumble forward
-    src/maple/maple.c           # Maple bus engine (PIO + protocol), core1
-    src/maple/vmu.c             # Visual Memory emulation (block r/w, LCD, clock, buzzer)
-    src/maple/dc_mapping.c      # gamepad -> Dreamcast controller condition (layouts)
-    src/storage/sdcard.c        # SD mount, dirs, vmu banks, gameid (FatFs)
-    src/storage/settings.c      # pico2maple_settings.bin + mapping blob
-    src/config/mapping.c        # custom controller-map parser + remap engine
-    src/oled/oled.c             # SSD1306 status display + VMU LCD mirror
-    src/usb/usb_host.c          # TinyUSB host -> p2m_gamepad_t (+ kbd/mouse)
-    src/bt/bp32_platform.c      # Bluepad32 uni_platform -> p2m_gamepad_t + rumble
-    src/board.c                 # pin map + GPIO15 alternate-layout sense
-    src/assets/p2m_assets.c     # glyphs, FAT+root template, sample cfg (generated)
-    src/assets/bootlogo.c       # boot splash (Midwest Mods, 128x64 1bpp)
-    # TODO: still to write for a complete build:
-    #   src/bt/bt_main.c        # cyw43/btstack init, bt_init/bt_ready (0x10008d14/dcc)
-    #   src/usb/xinput.c        # tusb_xinput glue
+    src/main.c
+    src/control.c
+    src/maple/maple.c
+    src/maple/vmu.c
+    src/maple/dc_mapping.c
+    src/maple/maple_devices.c
+    src/storage/sdcard.c
+    src/storage/settings.c
+    src/config/mapping.c
+    src/oled/oled.c
+    src/usb/usb_host.c
+    src/bt/bp32_platform.c
+    src/board.c
+    src/assets/p2m_assets.c
+    src/assets/bootlogo.c
+    src/hw_config.c
+    src/bt/bt_main.c
+    ${BTSTACK_MISSING_SOURCES}   # hci_event_builder.c, new in btstack v1.8
+    # TODO still to write: src/usb/xinput.c (tusb_xinput glue)
 )
 
 pico_generate_pio_header(pico2maple ${CMAKE_CURRENT_LIST_DIR}/src/maple.pio)
 
-target_include_directories(pico2maple PRIVATE src)
+target_include_directories(pico2maple PRIVATE
+    src
+    ${BLUEPAD32_ROOT}/src/components/bluepad32/include
+    ${BTSTACK_ROOT}/src
+    ${BTSTACK_ROOT}/3rd-party/bluedroid/encoder/include
+    ${BTSTACK_ROOT}/3rd-party/bluedroid/decoder/include
+)
 
-target_link_libraries(pico2maple
+# TinyUSB host needs the app's tusb_config.h on the include path (src/).
+target_compile_definitions(pico2maple PRIVATE
+    PICO_STACK_SIZE=0x1000
+    PICO_CORE1_STACK_SIZE=0x1000     # VMU image is now static (.bss), so default stack is fine
+    CFG_TUSB_CONFIG_FILE="tusb_config.h"
+)
+
+target_link_libraries(pico2maple PRIVATE
     pico_stdlib
     pico_multicore
     hardware_pio
-    hardware_dma
     hardware_pwm
-    hardware_i2c
+    hardware_dma
     hardware_flash
+    hardware_i2c
+    hardware_spi
     tinyusb_host
     tinyusb_board
-    pico_cyw43_arch_none        # CYW43 for BT only (btstack run loop)
+    pico_cyw43_arch_none
     pico_btstack_classic
     pico_btstack_ble
     pico_btstack_cyw43
-    # bluepad32 + tusb_xinput + no-OS-FatFS targets added once vendored
+    bluepad32
+    no-OS-FatFS-SD-SDIO-SPI-RPi-Pico
 )
 
-# Original build: UART stdio on GPIO0/1, Release
+# Bluepad32 + SD library as sub-builds. libbluepad32 and BTstack both #include our
+# btstack_config.h / sdkconfig.h, so src/ must be a global include dir before the sub-build.
+include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
+add_subdirectory(${BLUEPAD32_ROOT}/src/components/bluepad32 libbluepad32)
+add_subdirectory(${SDFATFS_ROOT}/src build_sdfatfs)
+
+# Console on UART0 (GPIO0/1); USB peripheral stays free for host mode.
 pico_enable_stdio_uart(pico2maple 1)
 pico_enable_stdio_usb(pico2maple 0)
 
-pico_add_extra_outputs(pico2maple)
+pico_add_extra_outputs(pico2maple)   # produces pico2maple.uf2

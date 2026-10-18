@@ -19,6 +19,7 @@ volatile int16_t g_active_layout = 3;     // standard by default
 volatile int16_t g_devinfo_rebuild;
 volatile bool    g_rumble_enabled = true;
 uint8_t          g_custom_map[0x91];
+uint8_t          g_settings_storage_pref;  // 2 = prefer SD (read by vmu_init); from settings
 
 // --- pending rumble (set by the Maple engine's Puru Puru hooks, drained by rumble_tick) ---
 static uint8_t  s_rumble_strength;

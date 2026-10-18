@@ -27,9 +27,9 @@
 #define DC_DPAD2_UP   (1u << 12)
 #define DC_DPAD2_DOWN (1u << 13)
 #define DC_DPAD2_LEFT (1u << 14)
-#define DC_DPAD2_RIGHT(1u << 15)
+#define DC_DPAD2_RIGHT (1u << 15)
 
-extern dc_controller_cond_t g_dc_controller_cond;   // @0x20005e2c (DAT_10001008 + 4 = buttons)
+dc_controller_cond_t g_dc_controller_cond;   // @0x20005e2c (DAT_10001008 + 4 = buttons)
 
 // Built-in layout ids (match the hotkey combos and the switch in FUN_1000098c).
 enum {

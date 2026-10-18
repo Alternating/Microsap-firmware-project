@@ -1,6 +1,7 @@
 // main.c — entry point + core0 control loop. Reconstructed from pico2maple flipped-bt:
 // main (0x10000608) and the core0 loop (0x10000308). Core1 runs the Maple engine
 // (maple_core1_main, 0x10000298); core0 handles USB/BT input, rumble output, and hotkeys.
+#include <stdio.h>
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
 #include "pico/util/queue.h"
@@ -19,7 +20,7 @@ extern void rumble_tick(void);                        // around 0x10007c70 (forw
 extern void bt_init(void);                            // 0x10008d14
 extern bool bt_ready(void);                           // 0x10008dcc
 extern void cyw43_poll_init(void);                    // 0x1000723c
-extern void bp32_early_init(void);                    // 0x10008140 == board pin sense (board.c)
+extern void p2m_board_init(void);                 // 0x10008140 (board.c)
 
 // hotkey/layout plumbing
 extern void dc_set_device_mode(int func, int sub);    // 0x10001494 (announce kbd/mouse/pad)
@@ -36,7 +37,7 @@ extern queue_t g_kbd_queue;               // @0x10000664 (12-byte elements, dept
 int main(void)
 {
     stdio_init_all();                     // 0x1000d844 (UART0 on GPIO0/1)
-    bp32_early_init();                    // 0x10008140 -> board_init(): GPIO15 layout sense
+    p2m_board_init();                         // 0x10008140: GPIO15 layout sense
     puts("Starting pico2maple");          // 0x1000d8d4
 
     button_init(&g_mode_button, 15);      // 0x10003d50  // TODO(verify @0x10000608: button pin)

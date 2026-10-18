@@ -22,7 +22,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// Pin configuration, populated by board_init() from the GPIO15 sense.
+// Pin configuration, populated by p2m_board_init() from the GPIO15 sense.
 // Field order and RAM addresses mirror the original .data struct exactly.
 typedef struct {
     uint8_t buzzer;      // @0x200029f4  (3 std / 26 alt)
@@ -48,6 +48,6 @@ extern p2m_pins_t g_pins;
 extern bool g_layout_alternate;   // true when GPIO15 was grounded at boot
 
 // from 0x10008140 — sense GPIO15 and populate g_pins; also start BTstack/cyw43 bring-up prep.
-void board_init(void);
+void p2m_board_init(void);
 
 #endif
