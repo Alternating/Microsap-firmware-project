@@ -253,7 +253,8 @@ void maple_core1_main(void)
     uint8_t lcd_info[15], media_hdr[28], blk_resp[524], allstat[192];
 
     multicore_lockout_victim_init();     // 0x1000a954 TODO(verify identity)
-    oled_init(false);                // TODO(verify): rotation from settings              // 0x10002d64(1)
+    oled_init(true);                 // 180° flip so the display reads upright when plugged into
+                                     // the Dreamcast (connector at the bottom). // 0x10002d64
     sd_ensure_dirs();
 
     // Maple pins: pull-ups on, SDCKB SIO-output-disabled (bus idles pulled high)
