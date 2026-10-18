@@ -2,7 +2,10 @@
 // main (0x10000608) and the core0 loop (0x10000308). Core1 runs the Maple engine
 // (maple_core1_main, 0x10000298); core0 handles USB/BT input, rumble output, and hotkeys.
 #include <stdio.h>
+#include <string.h>
 #include "pico/stdlib.h"
+#include "pico/bootrom.h"
+#include "hardware/watchdog.h"
 #include "pico/multicore.h"
 #include "pico/flash.h"
 #include "pico/util/queue.h"
@@ -105,6 +108,34 @@ int main(void)
                    (unsigned long)g_maple_get_cond,
                    gp ? " [pad active]" : "",
                    c->buttons, c->ltrig, c->rtrig, c->joyx, c->joyy);
+        }
+
+        // Serial console commands (debug UART): CLI reflash/reboot without touching BOOTSEL.
+        //   P2M_BOOTSEL -> reboot into the USB bootloader (mass-storage; flash.sh copies the UF2)
+        //   P2M_REBOOT  -> plain reboot (re-runs boot + self-test)
+        {
+            static char cmd[24];
+            static unsigned cmdlen;
+            int ch = getchar_timeout_us(0);
+            if (ch >= 0) {
+                if (ch == '\n' || ch == '\r') {
+                    cmd[cmdlen] = 0;
+                    cmdlen = 0;
+                    if (strcmp(cmd, "P2M_BOOTSEL") == 0) {
+                        puts("[cmd] rebooting into BOOTSEL (USB drive mode)");
+                        sleep_ms(50);
+                        reset_usb_boot(0, 0);
+                    } else if (strcmp(cmd, "P2M_REBOOT") == 0) {
+                        puts("[cmd] rebooting");
+                        sleep_ms(50);
+                        watchdog_reboot(0, 0, 50);
+                    }
+                } else if (cmdlen < sizeof cmd - 1) {
+                    cmd[cmdlen++] = (char)ch;
+                } else {
+                    cmdlen = 0;    // overlong garbage: drop
+                }
+            }
         }
 
         // Mode button: short press cycles VMU bank; long hold toggles a built-in layout.
