@@ -57,7 +57,10 @@ void controller_poll(void)
 
     p2m_gamepad_t gp;
     if (active) memcpy(&gp, active, sizeof gp);
-    else        memset(&gp, 0, sizeof gp);   // no pad: neutral (sticks default 0 -> mapper centers)
+    else {      // no pad: neutral — sticks must be explicitly centered (0 would read full up-left)
+        memset(&gp, 0, sizeof gp);
+        gp.g[0x11] = gp.g[0x12] = gp.g[0x13] = gp.g[0x14] = 0x80;
+    }
 
     bool select = active && (gp.g[P2M_MISC] & P2M_MISC_SELECT);
 
@@ -90,6 +93,7 @@ void controller_poll(void)
     if (select) {
         // Suppress gameplay input while the hotkey modifier is held: send neutral.
         uint8_t neutral[0x20] = {0};
+        neutral[0x11] = neutral[0x12] = neutral[0x13] = neutral[0x14] = 0x80;  // centered sticks
         dc_build_condition(neutral, g_active_layout);
         return;
     }
