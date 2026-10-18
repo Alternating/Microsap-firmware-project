@@ -47,6 +47,7 @@ volatile uint32_t g_maple_frames, g_maple_dev_req, g_maple_get_cond;
 // from "activity we can't sync on"
 volatile uint32_t g_maple_rx_words, g_maple_rx_resync;
 volatile uint32_t g_maple_cond_sent;   // controller condition replies actually transmitted
+volatile uint32_t g_maple_devreq_sent;  // DEVICE_STATUS replies actually transmitted
 // @0x20001668: attached sub-peripheral mask (P2M_SUBPERIPH_*); also patches sender AP on TX
 uint8_t g_subperiph_mask;
 // @0x2000e970: RX frame buffer (0x400 bytes: len,src,dst,cmd + payload + xor)
@@ -531,6 +532,7 @@ void maple_core1_main(void)
                 out.header = MAPLE_HDR_DEVICE_STATUS_MAIN;   // cmd 5, 28 words (112B devinfo)
                 out.payload = g_devinfo_payload;
                 maple_tx_frame(&tx_ctx, &out);
+                g_maple_devreq_sent++;
             } else if (to_vmu) {
                 maple_tx_frame(&tx_ctx, /*vmu devinfo frame*/ &out);
             } else if (to_rumble) {
