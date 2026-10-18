@@ -27,14 +27,15 @@ add a one-line shim in that btstack: create
 ## Configure + build
 ```sh
 export PICO_SDK_PATH=/path/to/pico-sdk          # must be 2.2.0 with submodules
-export BLUEPAD32_ROOT=/path/to/bluepad32        # cluoma's fork
+export BLUEPAD32_ROOT=/path/to/bluepad32        # upstream ricardoquesada/bluepad32 5.x (+ its external/btstack)
 export SDFATFS_ROOT=/path/to/no-OS-FatFS-SD
 export PICO_TOOLCHAIN_PATH=/path/to/arm-gnu-toolchain
 
 cmake -S recon -B recon/build -DCMAKE_BUILD_TYPE=Release
 cmake --build recon/build -j3        # btstack is large; -j3 avoids fork exhaustion on small hosts
+# bump the version into the filename with: cmake -S recon -B recon/build -DFW_VERSION=1.01
 ```
-Result: `recon/build/pico2maple.uf2`. Hold BOOTSEL and copy it to the RPI-RP2 drive to flash.
+Result: `recon/build/midwestmods-2350-v<FW_VERSION>.uf2` (default v1.00). Hold BOOTSEL and copy it to the RPI-RP2 drive to flash.
 
 ## Hardware notes
 - Console log is on **UART0 (GPIO0 TX / GPIO1 RX)** at 115200 — USB stays free for host mode.

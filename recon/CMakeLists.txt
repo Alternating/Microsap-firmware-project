@@ -29,6 +29,11 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
 
+# Firmware identity: output is  midwestmods-2350-v<FW_VERSION>.uf2
+# (name = midwestmods, platform = 2350 = RP2350, version = FW_VERSION). Bump per release, e.g.
+#   cmake -S recon -B recon/build -DFW_VERSION=1.01
+set(FW_VERSION "1.00" CACHE STRING "firmware version (goes into the .uf2 filename)")
+
 add_executable(pico2maple
     src/main.c
     src/control.c
@@ -97,4 +102,7 @@ add_subdirectory(${SDFATFS_ROOT}/src build_sdfatfs)
 pico_enable_stdio_uart(pico2maple 1)
 pico_enable_stdio_usb(pico2maple 0)
 
-pico_add_extra_outputs(pico2maple)   # produces pico2maple.uf2
+# Brand + version the output artifacts: midwestmods-2350-v<FW_VERSION>.{uf2,elf,bin}
+set_target_properties(pico2maple PROPERTIES OUTPUT_NAME "midwestmods-2350-v${FW_VERSION}")
+
+pico_add_extra_outputs(pico2maple)   # produces midwestmods-2350-v<FW_VERSION>.uf2
