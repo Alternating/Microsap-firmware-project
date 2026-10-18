@@ -247,6 +247,54 @@ void maple_tx_frame(maple_pio_ctx_t *tx, const maple_frame_t *frame)
     hw_clear_bits(&pio->ctrl, 1u << sm);
 }
 
+// ---- Loopback self-test ---------------------------------------------------------
+// TX and RX share the Maple pins (RX taps raw input levels), so a transmitted frame should be
+// captured by our own RX engine. Validates both PIO programs + framing + checksum on real
+// hardware without a Dreamcast. Expected decode for the ACK test frame: 00 01 00 07 06.
+static void maple_loopback_test(maple_pio_ctx_t *rx, maple_pio_ctx_t *tx)
+{
+    PIO pio = rx->pio;
+    uint sm = rx->sm;
+
+    // restart RX at program start + clear its FIFO (same prologue as maple_rx_frame)
+    pio->sm[sm].instr = pio_encode_jmp(rx->offset) & 0x1f;
+    hw_xor_bits(&pio->sm[sm].shiftctrl, PIO_SM0_SHIFTCTRL_FJOIN_RX_BITS);
+    hw_xor_bits(&pio->sm[sm].shiftctrl, PIO_SM0_SHIFTCTRL_FJOIN_RX_BITS);
+    hw_set_bits(&pio->ctrl, 1u << (PIO_CTRL_SM_RESTART_LSB + sm));
+    pio->sm[sm].instr = pio_encode_jmp(rx->offset) & 0x1f;
+    gpio_set_pulls(g_maple_pin + 1, true, false);
+
+    maple_frame_t f = { .header = MAPLE_HDR_ACK_MAIN, .payload = 0 };
+    maple_tx_frame(tx, &f);                       // blocking; RX FIFO (8 deep) holds the echo
+
+    uint32_t w[16];
+    int n = 0;
+    uint64_t dl = time_us_64() + 50000;
+    while (n < 16 && time_us_64() < dl) {
+        if (!(pio->fstat & (1u << (PIO_FSTAT_RXEMPTY_LSB + sm))))
+            w[n++] = pio->rxf[sm];
+    }
+    printf("[selftest] loopback raw words (%d):", n);
+    for (int i = 0; i < n; i++) printf(" %02x", (unsigned)(w[i] & 0xff));
+    printf("\n");
+    if (n >= 6 && (w[0] & 0xfc) == 0x84) {
+        static const uint8_t expect[5] = { 0x00, 0x01, 0x00, 0x07, 0x06 };
+        uint8_t prev = (uint8_t)w[0], b[15];
+        int k = 0;
+        for (int i = 1; i < n && k < 15; i++) {
+            uint8_t raw = (uint8_t)w[i];
+            b[k++] = (uint8_t)(((prev & 3) << 6) | (raw >> 2));
+            prev = raw;
+        }
+        printf("[selftest] decoded:");
+        for (int i = 0; i < k; i++) printf(" %02x", b[i]);
+        printf("  -> %s\n", (k >= 5 && memcmp(b, expect, 5) == 0)
+               ? "PASS (Maple RX+TX verified)" : "MISMATCH (framing/bit-order bug)");
+    } else {
+        puts("[selftest] FAIL: RX captured nothing/no sync - Maple PIO RX or TX broken");
+    }
+}
+
 // ---- Core1: engine init + protocol loop ----------------------------------------
 // from 0x10000298 (FUN_10000298).  The 128KB VMU image + response staging buffers live on
 // core1's stack (frame ≈ 0x20630 bytes).
@@ -258,7 +306,6 @@ void maple_core1_main(void)
     // stack, which needs a custom core1 stack region; a static buffer is cleaner for our build).
     static uint8_t vmu_buf[131264];      // auStack_20468
     uint8_t settings[256];               // auStack_20568
-    uint8_t devinfo_hdr[8];              // auStack_20624 (vmu devinfo hdr+ptr pair)
     uint8_t lcd_info[15], media_hdr[28], blk_resp[524], allstat[192];
 
     // (core0 is the lockout victim — set up in main before launch — so core1 can pause it
@@ -278,9 +325,14 @@ void maple_core1_main(void)
     gpio_set_pulls(pin, true, false);
     gpio_set_pulls(pin + 1, true, false);
 
-    // Device info blocks: controller (per active layout) + VMU
-    maple_build_device_info_blocks(g_devinfo_payload - 8, g_devinfo_payload, MAPLE_FUNC_CONTROLLER);
-    vmu_build_device_info(devinfo_hdr, /*vmu devinfo body*/ media_hdr /*placeholder*/);
+    // Device info blocks: controller (per active layout) + VMU.
+    // NOTE: pass NULL for the ref pair — our dispatch uses explicit headers; the original wrote
+    // the pair at devinfo-8 (adjacent globals), which here would underflow into unrelated .bss.
+    // The VMU body is 112 bytes and needs a real static home (a 28-byte stack buffer overflowed).
+    static uint8_t vmu_devinfo_body[112];
+    static uint8_t vmu_devinfo_ref[8];           // {header, body*} pair (vmu_devinfo_ref_t)
+    maple_build_device_info_blocks(NULL, g_devinfo_payload, MAPLE_FUNC_CONTROLLER);
+    vmu_build_device_info(vmu_devinfo_ref, vmu_devinfo_body);
 
     // Condition blocks
     g_dc_controller_cond.func = 0x01000000;          // FUNC_CONTROLLER big-endian
@@ -347,7 +399,9 @@ void maple_core1_main(void)
     memset(g_rx_buf, 0, 0x400);
     static uint8_t g_storage_announce;     // @DAT_10001bb0
     g_storage_announce = 1;
-    printf("[core1] Maple PIO up on GPIO%u/%u; entering protocol loop (waiting for Dreamcast)\n", pin, pin+1);
+    printf("[core1] Maple PIO up on GPIO%u/%u\n", pin, pin+1);
+    maple_loopback_test(&rx_ctx, &tx_ctx);       // hear our own TX: validates RX+TX end-to-end
+    puts("[core1] entering protocol loop (waiting for Dreamcast)");
     g_core1_ready = 1;              // signal core0 that the Maple engine is up
 
     // ---- Protocol loop ----
@@ -372,8 +426,7 @@ void maple_core1_main(void)
         extern volatile int16_t g_active_layout, g_devinfo_rebuild;
         if (g_devinfo_rebuild) {
             // delayed by DAT_10001bc4 µs then:
-            maple_build_device_info_blocks(g_devinfo_payload - 8, g_devinfo_payload,
-                                           g_devinfo_rebuild);
+            maple_build_device_info_blocks(NULL, g_devinfo_payload, g_devinfo_rebuild);
             g_devinfo_rebuild = 0;
         }
 
