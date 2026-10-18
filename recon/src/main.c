@@ -91,12 +91,16 @@ int main(void)
         if (time_us_64() - hb > 3000000) {
             hb = time_us_64();
             extern volatile uint32_t g_maple_frames, g_maple_dev_req, g_maple_get_cond;
+            extern dc_controller_cond_t g_dc_controller_cond;
             const p2m_gamepad_t *gp = usb_get_gamepad(); if (!gp) gp = bp32_get_gamepad();
-            printf("[hb] usb_pad=%d bt_pad=%d layout=%d | DC frames=%lu devreq=%lu cond=%lu%s\n",
+            const dc_controller_cond_t *c = &g_dc_controller_cond;
+            printf("[hb] usb_pad=%d bt_pad=%d layout=%d | DC frames=%lu devreq=%lu cond=%lu%s"
+                   " | out: btn=%04x lt=%02x rt=%02x stick=%02x,%02x\n",
                    usb_pad_connected(), bp32_pad_connected(), g_active_layout,
                    (unsigned long)g_maple_frames, (unsigned long)g_maple_dev_req,
                    (unsigned long)g_maple_get_cond,
-                   gp ? "  [pad active]" : "");
+                   gp ? " [pad active]" : "",
+                   c->buttons, c->ltrig, c->rtrig, c->joyx, c->joyy);
         }
 
         // Mode button: short press cycles VMU bank; long hold toggles a built-in layout.
