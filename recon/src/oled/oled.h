@@ -10,8 +10,9 @@
 // `rotated` selects the flipped panel orientation (the repo's "rotated_screen" builds).
 void oled_init(bool rotated);                 // from 0x10002d64
 
-// Kick a framebuffer→panel DMA transfer (no-op if disabled or a transfer is in flight).
-void oled_refresh_kick(void);                 // from 0x10002eb8
+// Push the current framebuffer to the panel (blocking I2C).
+void oled_present(void);
+void oled_refresh_kick(void);                 // from 0x10002eb8 (now presents the framebuffer)
 
 // Upscale the 48x32 1bpp VMU LCD into the framebuffer region. from 0x10002ef4
 void vmu_lcd_upscale(const uint8_t *lcd_fb);  // from 0x10002ef4

@@ -290,6 +290,12 @@ void maple_core1_main(void)
     puts("[core1] VMU init...");
     vmu_init(vmu_buf);
     puts("[core1] VMU ready");
+#ifndef DEBUG_UART_OLED
+    // Boot UI: hold the splash briefly, then transition to the status screen (VMU bank + INT/SD
+    // + connection icons) that vmu_init drew into the framebuffer — matches the original.
+    sleep_ms(1200);
+    oled_refresh_kick();                  // present the status screen
+#endif
     g_subperiph_mask |= P2M_SUBPERIPH_VMU;
     usb_announce(/*DAT_10001b80*/ 0);
 

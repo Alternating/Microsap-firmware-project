@@ -138,17 +138,20 @@ void oled_init(bool rotated)
     // from 0x10002d64 tail: FUN_10009ec8(alarm, ..., oled_refresh_cb)   // TODO(verify period)
 }
 
-// from 0x10002eb8 — arm the framebuffer->panel DMA if idle and enabled.
-void oled_refresh_kick(void)
+// Push the current framebuffer to the panel over blocking I2C. The framebuffer stores each
+// display byte as a uint16_t (low byte = pixel data); extract the low bytes and send the full
+// 128x64 frame. Simpler and more reliable than the DMA path for now.  (replaces 0x10002eb8)
+void oled_present(void)
 {
     if (!g_oled_fb) return;
-    if (!g_oled_enabled) return;
-    if (dma_channel_is_busy(g_oled_dma_ch)) return;
-    // tag the final entry with an I2C STOP so the panel latches the frame
-    ((uint16_t *)(g_oled_fb + FB_LAST_ENTRY))[0] |= I2C_STOP_FLAG;
-    dma_channel_set_read_addr(g_oled_dma_ch, (uint16_t *)(g_oled_fb + FB_DATA_OFF), false);
-    dma_channel_set_trans_count(g_oled_dma_ch, 0x407, true);  // 1024 data + 7 prefix entries
+    static uint8_t line[1024];
+    const uint16_t *e = (const uint16_t *)(g_oled_fb + FB_DATA_OFF);
+    for (int i = 0; i < 1024; i++) line[i] = (uint8_t)e[i];
+    ssd1306_send(line, 1024, 0, 0x7F, 0, 7);
 }
+
+// from 0x10002eb8 — present the framebuffer (was a DMA kick; now a blocking push).
+void oled_refresh_kick(void) { oled_present(); }
 
 // from 0x10002ef4 — upscale the 48x32 1bpp VMU LCD into the framebuffer's main area.
 // Functional reconstruction: the original is a dense bit-packing loop. The VMU LCD is 48x32,
