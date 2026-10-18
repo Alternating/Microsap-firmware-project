@@ -254,7 +254,8 @@ void maple_core1_main(void)
     uint8_t devinfo_hdr[8];              // auStack_20624 (vmu devinfo hdr+ptr pair)
     uint8_t lcd_info[15], media_hdr[28], blk_resp[524], allstat[192];
 
-    multicore_lockout_victim_init();     // 0x1000a954 TODO(verify identity)
+    // (core0 is the lockout victim — set up in main before launch — so core1 can pause it
+    // around flash writes; core1 itself is not a victim.)
 #ifndef DEBUG_UART_OLED              // OLED shares GPIO4/5 with the debug UART; skip it when debugging
     oled_init(true);                 // 180° flip so the display reads upright when plugged into
                                      // the Dreamcast (connector at the bottom). // 0x10002d64
@@ -288,6 +289,7 @@ void maple_core1_main(void)
 
     puts("[core1] VMU init...");
     vmu_init(vmu_buf);
+    puts("[core1] VMU ready");
     g_subperiph_mask |= P2M_SUBPERIPH_VMU;
     usb_announce(/*DAT_10001b80*/ 0);
 

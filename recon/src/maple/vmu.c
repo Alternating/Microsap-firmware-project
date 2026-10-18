@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "pico/util/queue.h"
+#include "pico/multicore.h"
 #include "hardware/flash.h"
 #include "hardware/sync.h"
 #include "vmu.h"
@@ -95,12 +96,14 @@ void vmu_format_bank(vmu_state_t *v)
         // Quick-format the system area (image offset 0x1E000..0x1FFFF) of the internal bank.
         static const uint8_t zeros[0x400] = {0};
         uint32_t bank_off = INTERNAL_BANKS_FLASH_OFF + (uint32_t)v->bank * 0x20000;
+        multicore_lockout_start_blocking();   // pause core0 (XIP) during the erase/program
         uint32_t irq = save_and_disable_interrupts();
         flash_range_erase(bank_off + 0x1E000, 0x2000);
         for (uint32_t off = 0x1E000; off < 0x1FC00; off += 0x400)
             flash_range_program(bank_off + off, zeros, 0x400);
         flash_range_program(bank_off + 0x1FC00, g_vmu_root_template, 0x400);
         restore_interrupts(irq);
+        multicore_lockout_end_blocking();
     } else if (v->storage_mode == 1) {
         memset(v->image, 0, 0x20000);
         if (v->bank != 10) {
@@ -198,11 +201,13 @@ int vmu_flush_dirty(vmu_state_t *v)
 
     if (v->storage_mode == 0) {
         uint32_t off = INTERNAL_BANKS_FLASH_OFF + (uint32_t)v->bank * 0x20000 + page * 0x1000;
+        multicore_lockout_start_blocking();   // pause core0 (XIP) during the erase/program
         uint32_t irq = save_and_disable_interrupts();
         flash_range_erase(off, 0x1000);
         flash_range_program(off, &v->image[page * 0x1000], 0x1000);
         v->dirty_mask &= ~(1u << page);
         restore_interrupts(irq);
+        multicore_lockout_end_blocking();
     } else if (v->storage_mode == 1) {
         static sd_write_msg_t m;                 // 4KB+ message; original builds on stack
         memset(&m, 0, sizeof m);

@@ -43,6 +43,7 @@ static inline void fb_put(unsigned index, uint8_t v)
 // (each source byte becomes one uint16_t entry). Mirrors the icon-painter inner loops.
 static void fb_blit(uint32_t fb_off, const uint8_t *glyph, int n)
 {
+    if (!g_oled_fb) return;
     uint16_t *dst = (uint16_t *)(g_oled_fb + fb_off);
     for (int i = 0; i < n; i++) dst[i] = glyph[i];
 }
@@ -140,6 +141,7 @@ void oled_init(bool rotated)
 // from 0x10002eb8 — arm the framebuffer->panel DMA if idle and enabled.
 void oled_refresh_kick(void)
 {
+    if (!g_oled_fb) return;
     if (!g_oled_enabled) return;
     if (dma_channel_is_busy(g_oled_dma_ch)) return;
     // tag the final entry with an I2C STOP so the panel latches the frame
@@ -154,6 +156,7 @@ void oled_refresh_kick(void)
 // TODO(verify @0x10002ef4): exact scale factor, orientation and target offset against hardware.
 void vmu_lcd_upscale(const uint8_t *lcd_fb)
 {
+    if (!g_oled_fb) return;
     for (int row = 0; row < 32; row++) {
         for (int col = 0; col < 48; col++) {
             int bit = (lcd_fb[row * 6 + (col >> 3)] >> (7 - (col & 7))) & 1;
@@ -171,6 +174,7 @@ void vmu_lcd_upscale(const uint8_t *lcd_fb)
 // from 0x10003188 — 0..9 digit, 10 = "GID". Banks 0/1 use label strips; 2..10 use digit glyphs.
 void oled_draw_bank(unsigned bank)
 {
+    if (!g_oled_fb) return;
     switch (bank) {
     case 0:  fb_blit(0x2CC, g_glyph_bank1_a, 0x20); fb_blit(0x3CC, g_glyph_bank1_b, 0x40); break;
     case 1:  fb_blit(0x2CC, g_glyph_bank0_a, 0x20); fb_blit(0x3CC, g_glyph_bank0_b, 0x40); break;
@@ -191,6 +195,7 @@ void oled_draw_bank(unsigned bank)
 // from 0x100033b8 — SD dirty/flush indicator (two 0x20 strips at pages 6/7, right column).
 void oled_draw_sd_icon(bool dirty)
 {
+    if (!g_oled_fb) return;
     if (dirty) {
         fb_blit(0x6CE, g_icon_sd_state, 0x20);
         fb_blit(0x7CE, g_icon_sd_state, 0x20);   // TODO(verify @0x100033b8: second strip source)
@@ -203,12 +208,14 @@ void oled_draw_sd_icon(bool dirty)
 // from 0x10003544 — storage medium icon (internal flash vs SD).
 void oled_draw_storage_icon(bool internal)
 {
+    if (!g_oled_fb) return;
     fb_blit(0x6F6, internal ? g_icon_storage_int : g_icon_storage_sd, 0x20);
 }
 
 // from 0x10003800 — active-layout icon (pages 4/5). layout: 1 std, 2 twin-stick, 3 alt, 4 racing.
 void oled_draw_layout_icon(unsigned layout)
 {
+    if (!g_oled_fb) return;
     const uint8_t *a, *b;
     switch (layout) {
     case 1:  a = g_icon_layout_std_a;    b = g_icon_layout_std_b;    break;
@@ -223,6 +230,7 @@ void oled_draw_layout_icon(unsigned layout)
 // from 0x10003938 — device-attached indicator (pages 0/1).
 void oled_draw_attached_icon(bool attached)
 {
+    if (!g_oled_fb) return;
     if (attached) {
         fb_blit(0xCC, g_icon_attach_on_a, 0x20);
     } else {
