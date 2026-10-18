@@ -2,6 +2,7 @@
 // Reconstructed from pico2maple flipped-bt; draft by local coder, corrected against decomp.
 #include <string.h>
 #include "pico/stdlib.h"
+#include "pico/flash.h"
 #include "hardware/flash.h"
 #include "hardware/sync.h"
 #include "storage.h"
@@ -46,17 +47,21 @@ bool settings_load(p2m_settings_t *s, bool use_sd)
     return blob_valid(s->raw);
 }
 
+// flash_safe_execute callback: runs with the other core safely parked (both cores call
+// flash_safe_execute_core_init at boot, so either core may save settings).
+static void settings_flash_op(void *param)
+{
+    flash_range_erase(SETTINGS_FLASH_OFFSET, 0x1000);
+    flash_range_program(SETTINGS_FLASH_OFFSET, (const uint8_t *)param, 0x100);
+}
+
 // from 0x10003f48
 bool settings_save(p2m_settings_t *s, bool use_sd)
 {
     s->raw[0xff] = settings_checksum(s->raw);
     if (use_sd && g_storage_status == 2)
         return sd_write_file("pico2maple_settings.bin", s->raw, 0x100, 0) == 0;
-    uint32_t irq = save_and_disable_interrupts();
-    flash_range_erase(SETTINGS_FLASH_OFFSET, 0x1000);
-    flash_range_program(SETTINGS_FLASH_OFFSET, s->raw, 0x100);
-    restore_interrupts(irq);
-    return true;
+    return flash_safe_execute(settings_flash_op, s->raw, UINT32_MAX) == PICO_OK;
 }
 
 // from 0x10003fe4 — zeroed blob with valid checksum (fields all unset)

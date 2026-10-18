@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
+#include "pico/flash.h"
 #include "pico/util/queue.h"
 #include "board.h"
 #include "storage/storage.h"
@@ -51,8 +52,9 @@ int main(void)
     queue_init(&g_kbd_queue, 12, 0x14);   // 0x100091f8 + 0x1000a3d0
     puts("[boot] USB host + kbd queue up; launching core1 (Maple engine)");
 
-    // (No multicore lockout: core1 no longer writes flash at runtime — the internal VMU is
-    // RAM-backed for now — so core0 never needs pausing. See vmu_flush_dirty.)
+    // Opt core0 into flash_safe_execute parking, so core1's settings_save can pause us
+    // during its flash write (core1 opts in likewise for btstack's link-key saves).
+    flash_safe_execute_core_init();
     multicore_launch_core1(maple_core1_main);   // 0x1000dd74 + 0x1000de64
 
     // fall into the core0 control loop (originally a separate function at 0x10000308)

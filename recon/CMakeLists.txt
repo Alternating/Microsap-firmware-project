@@ -91,6 +91,7 @@ endif()
 target_link_libraries(pico2maple PRIVATE
     pico_stdlib
     pico_multicore
+    pico_flash
     hardware_pio
     hardware_pwm
     hardware_dma

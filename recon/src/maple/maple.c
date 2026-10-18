@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
+#include "pico/flash.h"
 #include "pico/util/queue.h"
 #include "hardware/pio.h"
 #include "hardware/gpio.h"
@@ -315,6 +316,11 @@ void maple_core1_main(void)
 
     // (core0 is the lockout victim — set up in main before launch — so core1 can pause it
     // around flash writes; core1 itself is not a victim.)
+    // Let core0 park this core during its flash writes (btstack link-key TLV saves via
+    // flash_safe_execute). Without this, BT pairings silently fail to persist to flash and
+    // every bond is lost on power-off.
+    flash_safe_execute_core_init();
+
 #ifndef DEBUG_UART_OLED              // OLED shares GPIO4/5 with the debug UART; skip it when debugging
     oled_init(true);                 // 180° flip so the display reads upright when plugged into
                                      // the Dreamcast (connector at the bottom). // 0x10002d64
