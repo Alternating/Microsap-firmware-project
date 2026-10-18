@@ -369,13 +369,16 @@ void maple_core1_main(void)
     {
         pio_sm_config c = {0};
         c.clkdiv    = 0x00010000;                                   // 1.0
-        c.execctrl  = (rx_ctx.offset << 7) | ((rx_ctx.offset + 23) << 12);
+        c.execctrl  = (rx_ctx.offset << 7) | ((rx_ctx.offset + 23) << 12)
+                      | ((uint)(pin & 0x1f) << 24);   // JMP_PIN = SDCKA — the RX program's
+                                                      // `jmp pin`; without it RX watches GPIO0
         c.shiftctrl = 0x80890000;  // FJOIN_RX | PUSH_THRESH=8 | OUT_SHIFTDIR | AUTOPUSH
         c.pinctrl   = (uint)pin << 15;                              // IN_BASE
         pio_sm_init(pio0, 0, rx_ctx.offset, &c);
     }
-    hw_set_bits(&pio0->sm[0].pinctrl, 0);  // raw decomp: sm[0].pinctrl=(…&~0x1f)+2 — see note
-    // (original also does: pio0->sm[0].reg34 adjust + pio0->ctrl |= 1 — RX SM enabled)
+    // RP2350 SHIFTCTRL.IN_COUNT = 2: expose only SDCKA/SDCKB to IN PINS (raw decomp:
+    // puVar2[0x34] = (SHIFTCTRL & ~0x1f) + 2 — reg 0xD0 is SHIFTCTRL, not PINCTRL).
+    pio0->sm[0].shiftctrl = (pio0->sm[0].shiftctrl & ~0x1fu) + 2;
     hw_set_bits(&pio0->ctrl, 1u << 0);
 
     tx_ctx.offset = pio_add_program(pio1, &maple_tx_program);
