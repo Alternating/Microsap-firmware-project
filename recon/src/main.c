@@ -49,11 +49,8 @@ int main(void)
     queue_init(&g_kbd_queue, 12, 0x14);   // 0x100091f8 + 0x1000a3d0
     puts("[boot] USB host + kbd queue up; launching core1 (Maple engine)");
 
-    // Make core0 lockout-able BEFORE launching core1, so core1 can safely pause core0 during
-    // its flash writes (VMU format/flush) — otherwise core0 executing from XIP flash during an
-    // erase would hang. Must be set up before core1 reaches any flash op.
-    multicore_lockout_victim_init();      // 0x1000a954
-
+    // (No multicore lockout: core1 no longer writes flash at runtime — the internal VMU is
+    // RAM-backed for now — so core0 never needs pausing. See vmu_flush_dirty.)
     multicore_launch_core1(maple_core1_main);   // 0x1000dd74 + 0x1000de64
 
     // fall into the core0 control loop (originally a separate function at 0x10000308)
