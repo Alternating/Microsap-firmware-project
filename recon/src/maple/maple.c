@@ -166,6 +166,17 @@ int maple_rx_frame(maple_pio_ctx_t *rx)
                 synced = true; idx = 0; expect = 5; prev = raw;
             } else {                                     // garbage: clear FIFO, resync
                 g_maple_rx_resync++;
+                // one-shot diagnostic: dump the first rejected words so we can see what the
+                // console's start pattern looks like through our decoder
+                static uint32_t rej[24];
+                if (g_maple_rx_resync <= 24) {
+                    rej[g_maple_rx_resync - 1] = w;
+                    if (g_maple_rx_resync == 24) {
+                        printf("[rxdump] first 24 rejected words:");
+                        for (int i = 0; i < 24; i++) printf(" %02x", (unsigned)(rej[i] & 0xff));
+                        printf("\n");
+                    }
+                }
                 hw_xor_bits(&pio->sm[sm].shiftctrl, PIO_SM0_SHIFTCTRL_FJOIN_RX_BITS);
                 hw_xor_bits(&pio->sm[sm].shiftctrl, PIO_SM0_SHIFTCTRL_FJOIN_RX_BITS);
                 hw_set_bits(&pio->ctrl, 1u << (PIO_CTRL_SM_RESTART_LSB + sm));
@@ -251,6 +262,36 @@ void maple_tx_frame(maple_pio_ctx_t *tx, const maple_frame_t *frame)
     gpio_set_pulls(pin + 1, false, true); // TODO(verify @0x100017d8): args read as pull-DOWN
     pio_sm_set_consecutive_pindirs(pio, sm, pin, 2, false);
     hw_clear_bits(&pio->ctrl, 1u << sm);
+}
+
+// ---- Line probe -------------------------------------------------------------------
+// Raw SIO capture of the Maple lines around the first bus activity. Prints the state
+// transition sequence: '.' = idle (both high), 'a' = SDCKA(pin) low, 'b' = SDCKB(pin+1) low,
+// '0' = both low. A Maple start should read: . a 0 a 0 a 0 a 0 a .  (A low, B pulses 4x).
+static void maple_line_probe(uint32_t window_ms)
+{
+    uint pin = g_maple_pin;
+    uint32_t mask = (1u << pin) | (1u << (pin + 1));
+    uint64_t dl = time_us_64() + (uint64_t)window_ms * 1000;
+    while ((sio_hw->gpio_in & mask) != mask)            // wait for idle-high
+        if (time_us_64() > dl) { printf("[probe] lines never idle (state=%u)\n",
+                                        (unsigned)((sio_hw->gpio_in >> pin) & 3)); return; }
+    while ((sio_hw->gpio_in & mask) == mask)            // wait for first activity
+        if (time_us_64() > dl) { puts("[probe] no bus activity in window"); return; }
+
+    char seq[97];
+    uint32_t prev = (sio_hw->gpio_in >> pin) & 3;
+    static const char glyph[4] = { '0', 'b', 'a', '.' };   // bit0=A level, bit1=B level
+    seq[0] = glyph[prev];
+    int n = 1;
+    uint32_t quiet = 0;
+    while (n < 96 && quiet < 3000000) {                 // ~20ms+ of silence ends capture
+        uint32_t cur = (sio_hw->gpio_in >> pin) & 3;
+        if (cur != prev) { seq[n++] = glyph[cur]; prev = cur; quiet = 0; }
+        else quiet++;
+    }
+    seq[n] = 0;
+    printf("[probe] %d transitions: %s\n", n, seq);
 }
 
 // ---- Loopback self-test ---------------------------------------------------------
@@ -415,6 +456,7 @@ void maple_core1_main(void)
     g_storage_announce = 1;
     printf("[core1] Maple PIO up on GPIO%u/%u\n", pin, pin+1);
     maple_loopback_test(&rx_ctx, &tx_ctx);       // hear our own TX: validates RX+TX end-to-end
+    maple_line_probe(6000);                       // raw waveform of first console frame (6s window)
     puts("[core1] entering protocol loop (waiting for Dreamcast)");
     g_core1_ready = 1;              // signal core0 that the Maple engine is up
 
