@@ -11,4 +11,4 @@
 #define CONFIG_TARGET_PICO_W
 
 // 2 == Info
-#define CONFIG_BLUEPAD32_LOG_LEVEL 2
+#define CONFIG_BLUEPAD32_LOG_LEVEL 1   // errors only: info spam garbles the debug UART

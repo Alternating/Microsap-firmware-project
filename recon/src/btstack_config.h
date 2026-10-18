@@ -5,9 +5,11 @@
 // https://github.com/raspberrypi/pico-examples/blob/master/pico_w/bt/config/btstack_config.h
 
 // BTstack features that can be enabled
-#define ENABLE_LOG_INFO
+// Verbose BT logging collides with our serial diagnostics (pico stdio drops bytes when
+// printf races from both contexts), garbling the log. Errors only.
+// #define ENABLE_LOG_INFO
 #define ENABLE_LOG_ERROR
-#define ENABLE_PRINTF_HEXDUMP
+// #define ENABLE_PRINTF_HEXDUMP
 #define ENABLE_SCO_OVER_HCI
 
 #ifdef ENABLE_BLE

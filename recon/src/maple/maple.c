@@ -580,7 +580,7 @@ cond_miss:;
                 // Unanswered GET_CONDITION — one-shot dump of what the console wanted, so a
                 // recv/sent gap in the heartbeat can be attributed to a specific function.
                 static uint8_t miss_logged;
-                if (miss_logged < 8) {
+                if (miss_logged < 24) {
                     miss_logged++;
                     printf("[cond-miss] dst=%02x func=%08lx len=%u\n",
                            dst, (unsigned long)func, len);
