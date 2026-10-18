@@ -558,6 +558,17 @@ void maple_core1_main(void)
                 } else if (func == MAPLE_FUNC_KEYBOARD) {
                     // pull latest kbd report from queue into the condition block (0x100013c0)
                     maple_tx_frame(&tx_ctx, /*kbd cond*/ &out);
+                } else
+                    goto cond_miss;
+            } else {
+cond_miss:;
+                // Unanswered GET_CONDITION — one-shot dump of what the console wanted, so a
+                // recv/sent gap in the heartbeat can be attributed to a specific function.
+                static uint8_t miss_logged;
+                if (miss_logged < 8) {
+                    miss_logged++;
+                    printf("[cond-miss] dst=%02x func=%08lx len=%u\n",
+                           dst, (unsigned long)func, len);
                 }
             }
             break;
