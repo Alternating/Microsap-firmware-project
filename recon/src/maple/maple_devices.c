@@ -33,7 +33,11 @@ void maple_build_device_info_blocks(void *ref_, void *body_, int func)
     if (func == MAPLE_FUNC_CONTROLLER) {
         funccode = 0x00000001;
         switch (g_active_layout) {
-        case 1: case 3: fdata0 = 0xffff3f00; name = dc_name_controller; break;
+        // Layout 3 now reports the canonical real-pad capability word (console reads
+        // 0x000f06fe). The original used the expanded 0xffff3f00 here, but Atomiswave
+        // conversions (e.g. Dolphin Blue) parse the capability mask and misread Start
+        // against the expanded claim; a genuine Sega pad reports the canonical word.
+        case 1: case 3: fdata0 = 0xfe060f00; name = dc_name_controller; break;
         case 2:         fdata0 = 0xffff3f00; name = dc_name_twinstick;  break;
         case 4:         fdata0 = 0xfe000700; name = dc_name_racing;     break;
         default:        fdata0 = 0xfe060f00; name = dc_name_controller; break;
