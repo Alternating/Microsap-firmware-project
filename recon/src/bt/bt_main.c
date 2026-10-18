@@ -17,10 +17,9 @@ void bt_init(void)
     }
     bp32_platform_register();     // install our uni_platform before uni_init
     uni_init(0, NULL);            // starts BTstack + Bluepad32 (async run loop on core0)
-    // Latency: bluepad32 default link policy allows SNIFF mode, a power-saving schedule that
-    // adds 10-30ms of input lag on classic-BT pads (Xbox requests it eagerly). Disallow it;
-    // keep role switch. Must land before a pad connects - connection setup reads this default.
-    gap_set_default_link_policy_settings(LM_LINK_POLICY_ENABLE_ROLE_SWITCH);
+    // NOTE: do NOT forbid sniff mode in the link policy. Xbox pads require sniff support and
+    // can refuse to connect without it (observed: fresh sync failed on the sniff-off build).
+    // Latency is measured via the heartbeat's "bt N/s age" instead before further tuning.
     s_bt_ready = true;
 }
 
