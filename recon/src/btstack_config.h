@@ -9,7 +9,7 @@
 // printf races from both contexts), garbling the log. Errors only.
 // #define ENABLE_LOG_INFO
 #define ENABLE_LOG_ERROR
-// #define ENABLE_PRINTF_HEXDUMP
+#define ENABLE_PRINTF_HEXDUMP   // required by hci_dump_embedded_stdout.c (capability only)
 #define ENABLE_SCO_OVER_HCI
 
 #ifdef ENABLE_BLE
