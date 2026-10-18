@@ -18,6 +18,7 @@
 //   build: GPIO6=SDCKA "Maple 1", GPIO7=SDCKB "Maple 2").
 
 #include <string.h>
+#include <stdio.h>
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
 #include "pico/util/queue.h"
@@ -29,6 +30,7 @@
 // ---- Globals (addresses from the binary; names ours) --------------------------
 // @0x20002a01: Maple GPIO base pin (u8, part of the board-config struct in .data)
 extern uint8_t g_maple_pin;                       // = 6 in this flipped build
+extern uint8_t g_storage_status;                  // 1 = no SD, 2 = SD mounted
 // @0x2000fd4b: Maple port/unit number captured from the last host frame (bits 7:6 of AP)
 static uint8_t g_maple_port;
 // set to 1 by core1 once the Maple engine has finished initializing (core0 waits on it)
@@ -256,6 +258,7 @@ void maple_core1_main(void)
     oled_init(true);                 // 180° flip so the display reads upright when plugged into
                                      // the Dreamcast (connector at the bottom). // 0x10002d64
     sd_ensure_dirs();
+    printf("[core1] SD status=%u (1=no SD, 2=mounted)\n", g_storage_status);
 
     // Maple pins: pull-ups on, SDCKB SIO-output-disabled (bus idles pulled high)
     uint pin = g_maple_pin;
@@ -279,6 +282,7 @@ void maple_core1_main(void)
     // keyboard event queue: 12-byte elements, depth 5, own spinlock
     queue_init_with_spinlock(&g_kbd_queue, 12, 5, spin_lock_claim_unused(true));
 
+    puts("[core1] VMU init...");
     vmu_init(vmu_buf);
     g_subperiph_mask |= P2M_SUBPERIPH_VMU;
     usb_announce(/*DAT_10001b80*/ 0);
@@ -326,6 +330,7 @@ void maple_core1_main(void)
     memset(g_rx_buf, 0, 0x400);
     static uint8_t g_storage_announce;     // @DAT_10001bb0
     g_storage_announce = 1;
+    printf("[core1] Maple PIO up on GPIO%u/%u; entering protocol loop (waiting for Dreamcast)\n", pin, pin+1);
     g_core1_ready = 1;              // signal core0 that the Maple engine is up
 
     // ---- Protocol loop ----

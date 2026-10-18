@@ -36,35 +36,59 @@ extern queue_t g_kbd_queue;               // @0x10000664 (12-byte elements, dept
 // from 0x10000608
 int main(void)
 {
-    stdio_init_all();                     // 0x1000d844 (UART0 on GPIO0/1)
-    p2m_board_init();                         // 0x10008140: GPIO15 layout sense
-    puts("Starting pico2maple");          // 0x1000d8d4
+    stdio_init_all();                     // 0x1000d844 (UART0 on GPIO0/1 @115200)
+    sleep_ms(300);                        // let a serial terminal attach before the first prints
+    puts("\n=== Starting pico2maple (Midwest Mods) ===");
+
+    p2m_board_init();                     // 0x10008140: GPIO15 layout sense
+    printf("[boot] pin layout: %s  (Maple base GPIO%u)\n",
+           g_layout_alternate ? "ALTERNATE (GPIO15 grounded)" : "standard", g_pins.maple_pin);
 
     button_init(&g_mode_button, 15);      // 0x10003d50  // TODO(verify @0x10000608: button pin)
     usb_host_init();                      // 0x10007f08
     queue_init(&g_kbd_queue, 12, 0x14);   // 0x100091f8 + 0x1000a3d0
+    puts("[boot] USB host + kbd queue up; launching core1 (Maple engine)");
 
     multicore_launch_core1(maple_core1_main);   // 0x1000dd74 + 0x1000de64
 
     // fall into the core0 control loop (originally a separate function at 0x10000308)
     multicore_lockout_victim_init();      // 0x1000a954
-    while (!g_core1_ready) tight_loop_contents();   // wait for Maple engine on core1
+    {   // wait for the Maple engine, but don't hang silently if core1 stalls
+        uint64_t t = time_us_64();
+        while (!g_core1_ready) {
+            if (time_us_64() - t > 5000000) { puts("[boot] WARNING: core1 not ready after 5s"); t = time_us_64(); }
+            tight_loop_contents();
+        }
+    }
+    puts("[boot] core1 ready (Maple engine initialized)");
 
     bt_init();                            // 0x10008d14 ("failed to initialise cyw43_arch" on err)
-    while (!bt_ready()) tight_loop_contents();      // 0x10008dcc
+    {   // BT is optional: time out instead of hanging so USB + Maple still work if BT fails
+        uint64_t t = time_us_64();
+        while (!bt_ready() && time_us_64() - t < 3000000) tight_loop_contents();
+        puts(bt_ready() ? "[boot] Bluetooth ready" : "[boot] WARNING: Bluetooth not ready (USB + Maple still OK)");
+    }
     cyw43_poll_init();                    // 0x1000723c
 
     control_init();                       // load settings + custom map now that SD/flash are up
+    puts("[boot] control init done; entering main loop");
 
     // 300ms USB settle window before first poll (from the time_us_64 gate at 0x10000308 head)
     uint64_t t0 = time_us_64();
     while (time_us_64() - t0 < 300000 && !usb_pad_connected())
         usb_host_task();
 
+    uint64_t hb = time_us_64();
     for (;;) {
         usb_host_task();                  // 0x1000726c
         controller_poll();                // 0x100002b0 (reads pads, runs custom+layout mapping)
         rumble_tick();                    // 0x10007c70 (forward DC vibration to USB/BT pad)
+
+        // heartbeat every ~3s so the log shows the loop is alive + current status
+        if (time_us_64() - hb > 3000000) {
+            hb = time_us_64();
+            printf("[hb] alive  usb_pad=%d  layout=%d\n", usb_pad_connected(), g_active_layout);
+        }
 
         // Mode button: short press cycles VMU bank; long hold toggles a built-in layout.
         int ev = button_poll(&g_mode_button);   // 0x10003d78
