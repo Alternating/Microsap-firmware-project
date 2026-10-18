@@ -426,7 +426,10 @@ void maple_core1_main(void)
     // presented yet — our reconstructed glyph offsets wrap across page boundaries and render
     // garbled. Keep the clean splash until the OLED layout is corrected with hardware feedback.
     // TODO(oled): fix glyph offsets / page wrapping, then present the status screen here.
-    g_subperiph_mask |= P2M_SUBPERIPH_VMU;
+    // A/B test: VMU advertising disabled — the console rejects our current VMU device-info
+    // and loops re-enumeration of the whole port. Pure controller until the VMU reply content
+    // is verified against console behavior.  TODO(vmu): re-enable after fixing devinfo body.
+    // g_subperiph_mask |= P2M_SUBPERIPH_VMU;
     usb_announce(/*DAT_10001b80*/ 0);
 
     // Settings load + custom-map load now live on core0 in control_init(); core1 just loads the
