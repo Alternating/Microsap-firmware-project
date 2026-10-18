@@ -71,6 +71,7 @@ target_compile_definitions(pico2maple PRIVATE
     PICO_STACK_SIZE=0x1000
     PICO_CORE1_STACK_SIZE=0x1000     # VMU image is now static (.bss), so default stack is fine
     CFG_TUSB_CONFIG_FILE="tusb_config.h"
+    CYW43_ENABLE_BLUETOOTH=1         # load the CYW43 BT firmware; without it HCI power-on fails
 )
 
 # Debug console on the OLED header (Maple Tap v1 doesn't break out GPIO0). Routes stdio to
