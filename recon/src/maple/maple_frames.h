@@ -13,9 +13,10 @@
                                                  // (main peripheral present — the DC requires this)
 #define MAPLE_HDR_DEVICE_STATUS_SUB  0x0500021cu // cmd 05 DEVICE_STATUS, 28 words, sub
 #define MAPLE_HDR_ALL_STATUS        0x06000130u  // cmd 06 ALL_STATUS, 48 words (192B)
-#define MAPLE_HDR_DATA_BLOCK_READ   0x08000182u  // cmd 08 DATA_TRANSFER, 130 words (VMU block)
-#define MAPLE_HDR_DATA_MEDIA_INFO   0x08000102u  // cmd 08 DATA_TRANSFER, 2 words (get media info)
-#define MAPLE_HDR_DATA_LCD_INFO     0x08000107u  // cmd 08 DATA_TRANSFER, 7 words (LCD media info)
+#define MAPLE_HDR_DEVICE_STATUS_VMU  0x0500011cu // cmd 05 DEVICE_STATUS, 28 words, src 0x01 (VMU slot 1)
+#define MAPLE_HDR_DATA_BLOCK_READ   0x08000182u  // cmd 08 DATA_TRANSFER, 130 words (VMU block), src 0x01
+#define MAPLE_HDR_DATA_SHORT_VMU    0x08000102u  // cmd 08, 2 words, src 0x01 (LCD media info / VMU cond)
+#define MAPLE_HDR_DATA_MEDIA_INFO   0x08000107u  // cmd 08, 7 words, src 0x01 (storage media info)
 #define MAPLE_HDR_DATA_RUMBLE_MEDIA 0x08000202u  // cmd 08, 2 words, sub (Puru Puru media info)
 #define MAPLE_HDR_DATA_RUMBLE_COND  0x08000203u  // cmd 08, 3 words, sub (Puru Puru condition)
 #define MAPLE_HDR_DATA_COND_MOUSE   0x0500011cu  // mouse GET_CONDITION reuses DEVICE_STATUS len

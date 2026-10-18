@@ -73,7 +73,7 @@ extern void vmu_load_bank(uint8_t *vmu_buf, int bank, int gameid, ...); // 0x100
 extern void vmu_load_gameid_bank(uint8_t *vmu_buf, int flags);          // 0x10002aa0
 extern void vmu_bank_cycle(uint8_t *vmu_buf, bool forward, uint32_t t_lo, uint32_t t_hi); // 0x10002ac4
 extern void vmu_flush_dirty(uint8_t *vmu_buf, ...);         // 0x1000278c
-extern void vmu_block_read(uint8_t *vmu_buf, uint32_t addr);// 0x10002748
+extern int  vmu_block_read(void *v, uint32_t addr);         // 0x10002748 (0 = ok)
 extern void vmu_block_write(uint8_t *vmu_buf, uint32_t addr, const void *data, int words); // 0x100028a4
 extern void vmu_lcd_write(uint8_t *vmu_buf, uint32_t addr, const void *data, int words);   // 0x1000290c
 extern int  vmu_set_condition(uint8_t *vmu_buf, const void *cond, int len); // 0x10002bbc (buzzer)
@@ -374,7 +374,7 @@ void maple_core1_main(void)
     // stack, which needs a custom core1 stack region; a static buffer is cleaner for our build).
     static uint8_t vmu_buf[131264];      // auStack_20468
     uint8_t settings[256];               // auStack_20568
-    uint8_t lcd_info[15], media_hdr[28], blk_resp[524], allstat[192];
+    uint8_t allstat[192];                // ALL_STATUS extension body
 
     // (core0 is the lockout victim — set up in main before launch — so core1 can pause it
     // around flash writes; core1 itself is not a victim.)
@@ -534,9 +534,11 @@ void maple_core1_main(void)
                 maple_tx_frame(&tx_ctx, &out);
                 g_maple_devreq_sent++;
             } else if (to_vmu) {
-                maple_tx_frame(&tx_ctx, /*vmu devinfo frame*/ &out);
+                out.header = MAPLE_HDR_DEVICE_STATUS_VMU;      // DAT_100008ec: 0x0500011c
+                out.payload = vmu_devinfo_body;
+                maple_tx_frame(&tx_ctx, &out);
             } else if (to_rumble) {
-                maple_tx_frame(&tx_ctx, /*purupuru devinfo @0x100a2994*/ &out);
+                maple_tx_frame(&tx_ctx, /*purupuru devinfo @0x100a2994 TODO*/ &out);
             }
             break;
         case MAPLE_CMD_ALL_STATUS_REQ:
@@ -562,6 +564,17 @@ void maple_core1_main(void)
                     maple_tx_frame(&tx_ctx, /*kbd cond*/ &out);
                 } else
                     goto cond_miss;
+            } else if (to_vmu) {
+                // Games poll the VMU functions (clock/storage) with GET_CONDITION; unanswered
+                // polls make the console drop the whole device. Echo the function with an
+                // all-zero condition (MapleSyrup does the same).
+                static uint8_t vmu_cond[8];
+                memset(vmu_cond, 0, sizeof vmu_cond);
+                vmu_cond[3] = (uint8_t)func;
+                out.header = MAPLE_HDR_DATA_SHORT_VMU;         // 0x08000102 (2 words)
+                out.payload = vmu_cond;
+                maple_tx_frame(&tx_ctx, &out);
+                g_maple_cond_sent++;
             } else {
 cond_miss:;
                 // Unanswered GET_CONDITION — one-shot dump of what the console wanted, so a
@@ -577,17 +590,29 @@ cond_miss:;
         case MAPLE_CMD_GET_MEDIA_INFO:
             if (to_vmu && func == MAPLE_FUNC_STORAGE) {
                 vmu_media_info_build((void*)vmu_buf);
-                out.payload = media_hdr; maple_tx_frame(&tx_ctx, &out);
+                out.header = MAPLE_HDR_DATA_MEDIA_INFO;        // 0x08000107 (7 words)
+                out.payload = vmu_buf + 0x20419;               // vmu_state_t.media_resp
+                maple_tx_frame(&tx_ctx, &out);
             } else if (to_vmu && func == MAPLE_FUNC_LCD) {
-                out.payload = lcd_info; maple_tx_frame(&tx_ctx, &out);
+                // func 0x04 + LCD geometry word (48x32 1bpp)  TODO(verify @auStack_33 content)
+                static const uint8_t lcd_minfo[8] = { 0,0,0,0x04, 0x00,0x10,0x1f,0x2f };
+                out.header = MAPLE_HDR_DATA_SHORT_VMU;         // 0x08000102 (2 words)
+                out.payload = lcd_minfo;
+                maple_tx_frame(&tx_ctx, &out);
             } else if (to_rumble && func == MAPLE_FUNC_VIBRATION) {
-                maple_tx_frame(&tx_ctx, /*static rumble media info*/ &out);
+                maple_tx_frame(&tx_ctx, /*static rumble media info TODO*/ &out);
             }
             break;
         case MAPLE_CMD_BLOCK_READ:
             if (to_vmu && func == MAPLE_FUNC_STORAGE) {
-                vmu_block_read(vmu_buf, *(const uint32_t *)(f + 8));
-                out.payload = blk_resp; maple_tx_frame(&tx_ctx, &out);
+                if (vmu_block_read((void*)vmu_buf, *(const uint32_t *)(f + 8)) == 0) {
+                    out.header = MAPLE_HDR_DATA_BLOCK_READ;    // 0x08000182 (130 words)
+                    out.payload = vmu_buf + 0x200c0;           // blk_resp_func..data
+                } else {
+                    out.header = 0xfc000200u;                  // file error, sub (DAT_100021cc)
+                    out.payload = 0;
+                }
+                maple_tx_frame(&tx_ctx, &out);
                 frames_lo = 0;
             } else if (to_rumble && func == MAPLE_FUNC_VIBRATION) {
                 if (rumble_get_cond(0, 0)) maple_tx_frame(&tx_ctx, /*err*/ &out);
