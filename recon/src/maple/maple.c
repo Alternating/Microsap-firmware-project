@@ -42,6 +42,9 @@ static uint8_t g_maple_port;
 volatile uint8_t g_core1_ready;
 // diagnostics: how many Maple frames the Dreamcast has sent us (printed by core0 heartbeat)
 volatile uint32_t g_maple_frames, g_maple_dev_req, g_maple_get_cond;
+// raw RX activity: FIFO words pulled / resyncs on garbage — tells "no line activity" apart
+// from "activity we can't sync on"
+volatile uint32_t g_maple_rx_words, g_maple_rx_resync;
 // @0x20001668: attached sub-peripheral mask (P2M_SUBPERIPH_*); also patches sender AP on TX
 uint8_t g_subperiph_mask;
 // @0x2000e970: RX frame buffer (0x400 bytes: len,src,dst,cmd + payload + xor)
@@ -154,12 +157,14 @@ int maple_rx_frame(maple_pio_ctx_t *rx)
         while (pio->fstat & (1u << (PIO_FSTAT_RXEMPTY_LSB + sm)))
             ;                                            // busy-poll (core1 dedicated)
         uint32_t w = pio->rxf[sm];
+        g_maple_rx_words++;
         uint8_t raw = (uint8_t)w;
         uint8_t byte = (uint8_t)(((prev & 3) << 6) | (raw >> 2));
         if (!synced) {
             if ((w & 0xfc) == 0x84) {                   // start-pattern residue signature
                 synced = true; idx = 0; expect = 5; prev = raw;
             } else {                                     // garbage: clear FIFO, resync
+                g_maple_rx_resync++;
                 hw_xor_bits(&pio->sm[sm].shiftctrl, PIO_SM0_SHIFTCTRL_FJOIN_RX_BITS);
                 hw_xor_bits(&pio->sm[sm].shiftctrl, PIO_SM0_SHIFTCTRL_FJOIN_RX_BITS);
                 hw_set_bits(&pio->ctrl, 1u << (PIO_CTRL_SM_RESTART_LSB + sm));
