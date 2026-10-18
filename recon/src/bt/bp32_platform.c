@@ -93,8 +93,14 @@ static uni_error_t p2m_on_device_ready(uni_hid_device_t *d)
     return UNI_ERROR_SUCCESS;
 }
 
+// latency telemetry: report count + timestamp of the freshest pad data (read by the heartbeat)
+volatile uint32_t g_bp32_reports;
+volatile uint64_t g_bp32_last_report_us;
+
 static void p2m_on_controller_data(uni_hid_device_t *d, uni_controller_t *ctl)
 {
+    g_bp32_reports++;
+    g_bp32_last_report_us = time_us_64();
     s_active = d;
     switch (ctl->klass) {
     case UNI_CONTROLLER_CLASS_GAMEPAD:

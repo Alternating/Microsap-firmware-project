@@ -97,6 +97,14 @@ int main(void)
             hb = time_us_64();
             extern volatile uint32_t g_maple_frames, g_maple_dev_req, g_maple_get_cond;
             extern volatile uint32_t g_maple_rx_words, g_maple_rx_resync, g_maple_cond_sent, g_maple_devreq_sent;
+            extern volatile uint32_t g_bp32_reports;
+            extern volatile uint64_t g_bp32_last_report_us;
+            static uint32_t prev_reports;
+            uint32_t rate = (g_bp32_reports - prev_reports) / 3;
+            prev_reports = g_bp32_reports;
+            uint32_t age_ms = g_bp32_last_report_us
+                ? (uint32_t)((time_us_64() - g_bp32_last_report_us) / 1000) : 0;
+            if (age_ms > 9999) age_ms = 9999;
             extern dc_controller_cond_t g_dc_controller_cond;
             const p2m_gamepad_t *gp = usb_get_gamepad();
             if (!gp) gp = xinput_get_gamepad();
@@ -110,6 +118,7 @@ int main(void)
                    (unsigned long)g_maple_devreq_sent,
                    (unsigned long)g_maple_get_cond, (unsigned long)g_maple_cond_sent,
                    gp ? " [pad active]" : "",
+                   (unsigned long)rate, (unsigned long)age_ms,
                    c->buttons, c->ltrig, c->rtrig, c->joyx, c->joyy);
         }
 

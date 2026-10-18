@@ -3,6 +3,7 @@
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 #include "uni.h"
+#include "btstack.h"
 #include "bp32_platform.h"
 
 static bool s_bt_ready;
@@ -16,6 +17,10 @@ void bt_init(void)
     }
     bp32_platform_register();     // install our uni_platform before uni_init
     uni_init(0, NULL);            // starts BTstack + Bluepad32 (async run loop on core0)
+    // Latency: bluepad32 default link policy allows SNIFF mode, a power-saving schedule that
+    // adds 10-30ms of input lag on classic-BT pads (Xbox requests it eagerly). Disallow it;
+    // keep role switch. Must land before a pad connects - connection setup reads this default.
+    gap_set_default_link_policy_settings(LM_LINK_POLICY_ENABLE_ROLE_SWITCH);
     s_bt_ready = true;
 }
 
