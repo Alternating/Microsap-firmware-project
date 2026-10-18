@@ -28,8 +28,9 @@
 #include "maple.pio.h"   // generated: maple_tx_program / maple_rx_program
 #include "maple_frames.h"   // decoded Maple response headers
 
-// Controller GET_CONDITION reply: DATA_TRANSFER (cmd 8), 3 words (func + 8-byte condition).
-#define MAPLE_HDR_DATA_COND_CONTROLLER 0x08000103u
+// Controller GET_CONDITION reply: DATA_TRANSFER (cmd 8), 3 words (func + 8-byte condition),
+// src AP 0x20 (main peripheral). Verified from the original: header DAT_10001b6c = 0x08002003.
+#define MAPLE_HDR_DATA_COND_CONTROLLER 0x08002003u
 
 // ---- Globals (addresses from the binary; names ours) --------------------------
 // @0x20002a01: Maple GPIO base pin (u8, part of the board-config struct in .data)
@@ -296,12 +297,10 @@ void maple_core1_main(void)
     puts("[core1] VMU init...");
     vmu_init(vmu_buf);
     puts("[core1] VMU ready");
-#ifndef DEBUG_UART_OLED
-    // Boot UI: hold the splash briefly, then transition to the status screen (VMU bank + INT/SD
-    // + connection icons) that vmu_init drew into the framebuffer — matches the original.
-    sleep_ms(1200);
-    oled_refresh_kick();                  // present the status screen
-#endif
+    // NOTE: the status screen (bank/INT/SD glyphs) is drawn into the framebuffer but NOT
+    // presented yet — our reconstructed glyph offsets wrap across page boundaries and render
+    // garbled. Keep the clean splash until the OLED layout is corrected with hardware feedback.
+    // TODO(oled): fix glyph offsets / page wrapping, then present the status screen here.
     g_subperiph_mask |= P2M_SUBPERIPH_VMU;
     usb_announce(/*DAT_10001b80*/ 0);
 

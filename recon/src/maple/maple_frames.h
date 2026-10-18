@@ -9,7 +9,8 @@
 // --- response command headers (payload length baked into byte0) ---
 #define MAPLE_HDR_ACK_MAIN          0x07000100u  // cmd 07 DEVICE_REPLY/ACK, 0 words, main
 #define MAPLE_HDR_ACK_SUB           0x07000200u  // cmd 07 ACK, 0 words, sub-peripheral
-#define MAPLE_HDR_DEVICE_STATUS_MAIN 0x0500011cu // cmd 05 DEVICE_STATUS, 28 words (112B devinfo)
+#define MAPLE_HDR_DEVICE_STATUS_MAIN 0x0500201cu // cmd 05 DEVICE_STATUS, 28 words; src AP 0x20
+                                                 // (main peripheral present — the DC requires this)
 #define MAPLE_HDR_DEVICE_STATUS_SUB  0x0500021cu // cmd 05 DEVICE_STATUS, 28 words, sub
 #define MAPLE_HDR_ALL_STATUS        0x06000130u  // cmd 06 ALL_STATUS, 48 words (192B)
 #define MAPLE_HDR_DATA_BLOCK_READ   0x08000182u  // cmd 08 DATA_TRANSFER, 130 words (VMU block)
