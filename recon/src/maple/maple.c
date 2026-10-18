@@ -272,6 +272,25 @@ static void maple_line_probe(uint32_t window_ms)
 {
     uint pin = g_maple_pin;
     uint32_t mask = (1u << pin) | (1u << (pin + 1));
+    // Pull both lines up first — the TX teardown leaves a pulldown on SDCKB, which would
+    // make a floating line read low and masquerade as "stuck".
+    gpio_set_pulls(pin, true, false);
+    gpio_set_pulls(pin + 1, true, false);
+    sleep_ms(2);
+
+    // Per-line edge counts over 1s: definitive liveness check for each wire.
+    uint32_t ea = 0, eb = 0, prev_in = sio_hw->gpio_in;
+    uint64_t end = time_us_64() + 1000000;
+    while (time_us_64() < end) {
+        uint32_t cur = sio_hw->gpio_in, d = cur ^ prev_in;
+        if (d & (1u << pin))       ea++;
+        if (d & (1u << (pin + 1))) eb++;
+        prev_in = cur;
+    }
+    printf("[probe] edges in 1s: SDCKA(GPIO%u)=%lu  SDCKB(GPIO%u)=%lu  idle_state=%u\n",
+           pin, (unsigned long)ea, pin + 1, (unsigned long)eb,
+           (unsigned)((sio_hw->gpio_in >> pin) & 3));
+
     uint64_t dl = time_us_64() + (uint64_t)window_ms * 1000;
     while ((sio_hw->gpio_in & mask) != mask)            // wait for idle-high
         if (time_us_64() > dl) { printf("[probe] lines never idle (state=%u)\n",
