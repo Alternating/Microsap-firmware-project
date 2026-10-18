@@ -255,8 +255,12 @@ void maple_core1_main(void)
     uint8_t lcd_info[15], media_hdr[28], blk_resp[524], allstat[192];
 
     multicore_lockout_victim_init();     // 0x1000a954 TODO(verify identity)
+#ifndef DEBUG_UART_OLED              // OLED shares GPIO4/5 with the debug UART; skip it when debugging
     oled_init(true);                 // 180° flip so the display reads upright when plugged into
                                      // the Dreamcast (connector at the bottom). // 0x10002d64
+#else
+    puts("[core1] OLED disabled (debug UART on GPIO4/5)");
+#endif
     sd_ensure_dirs();
     printf("[core1] SD status=%u (1=no SD, 2=mounted)\n", g_storage_status);
 

@@ -51,3 +51,19 @@ Result: `recon/build/midwestmods-2350-v<FW_VERSION>.uf2` (default v1.00). Hold B
 See `../LEDGER.md`. Highlights: the BTstack run-loop integration in `bt_main.c`, the xinput
 glue, and the ~30 `TODO(verify)` markers (controller report offsets, Maple timing, VMU offsets)
 that need confirmation on real hardware.
+
+## Serial debugging without GPIO0 (Maple Tap v1 board)
+
+The Maple Tap v1 board does not break out GPIO0/1 (the UART0 console). To read the log on the
+real board, build the debug variant that moves the console to **UART1 on the OLED header pads**
+(GPIO4 = TX = the SDA pad, GPIO5 = RX = the SCL pad, next to GND):
+```sh
+cmake -S recon -B recon/build-debug -DDEBUG_UART_OLED=ON
+cmake --build recon/build-debug -j3
+```
+Flash that `.uf2`, then connect a 3.3 V USB-serial adapter: **GPIO4 (SDA pad) → adapter RX**,
+**GND → GND**, read at **115200**. The OLED is disabled in this build (it shares those pins).
+
+Pinout note: this board is wired for the **standard** layout (Maple on GPIO16/17). Leave GPIO15
+floating so the firmware selects the standard pins; grounding GPIO15 would switch it to the
+alternate layout (Maple GPIO6/7), which this board does not route.

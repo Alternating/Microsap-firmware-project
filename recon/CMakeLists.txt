@@ -73,6 +73,20 @@ target_compile_definitions(pico2maple PRIVATE
     CFG_TUSB_CONFIG_FILE="tusb_config.h"
 )
 
+# Debug console on the OLED header (Maple Tap v1 doesn't break out GPIO0). Routes stdio to
+# UART1 on GPIO4(TX)/GPIO5(RX) — the OLED SDA/SCL pads — and disables the OLED (shared pins).
+# Enable with:  cmake -S recon -B recon/build -DDEBUG_UART_OLED=ON   then read GPIO4 @115200.
+option(DEBUG_UART_OLED "Route serial console to UART1 on the OLED header (GPIO4/5); disables OLED" OFF)
+if(DEBUG_UART_OLED)
+    target_compile_definitions(pico2maple PRIVATE
+        DEBUG_UART_OLED=1
+        PICO_DEFAULT_UART=1
+        PICO_DEFAULT_UART_TX_PIN=4
+        PICO_DEFAULT_UART_RX_PIN=5
+    )
+    message(STATUS "DEBUG_UART_OLED: console on UART1 GPIO4(TX)/GPIO5(RX); OLED disabled")
+endif()
+
 target_link_libraries(pico2maple PRIVATE
     pico_stdlib
     pico_multicore
