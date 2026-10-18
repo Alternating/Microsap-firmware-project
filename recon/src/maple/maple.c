@@ -26,6 +26,10 @@
 #include "hardware/gpio.h"
 #include "maple.h"
 #include "maple.pio.h"   // generated: maple_tx_program / maple_rx_program
+#include "maple_frames.h"   // decoded Maple response headers
+
+// Controller GET_CONDITION reply: DATA_TRANSFER (cmd 8), 3 words (func + 8-byte condition).
+#define MAPLE_HDR_DATA_COND_CONTROLLER 0x08000103u
 
 // ---- Globals (addresses from the binary; names ours) --------------------------
 // @0x20002a01: Maple GPIO base pin (u8, part of the board-config struct in .data)
@@ -35,6 +39,8 @@ extern uint8_t g_storage_status;                  // 1 = no SD, 2 = SD mounted
 static uint8_t g_maple_port;
 // set to 1 by core1 once the Maple engine has finished initializing (core0 waits on it)
 volatile uint8_t g_core1_ready;
+// diagnostics: how many Maple frames the Dreamcast has sent us (printed by core0 heartbeat)
+volatile uint32_t g_maple_frames, g_maple_dev_req, g_maple_get_cond;
 // @0x20001668: attached sub-peripheral mask (P2M_SUBPERIPH_*); also patches sender AP on TX
 uint8_t g_subperiph_mask;
 // @0x2000e970: RX frame buffer (0x400 bytes: len,src,dst,cmd + payload + xor)
@@ -380,6 +386,7 @@ void maple_core1_main(void)
             continue;
         }
         frames_lo++;
+        g_maple_frames++;
 
         const uint8_t *f = g_rx_buf;     // [len][src][dst][cmd]
         uint8_t len = f[0], dst = f[2], cmd = f[3];
@@ -390,9 +397,10 @@ void maple_core1_main(void)
 
         switch (cmd) {
         case MAPLE_CMD_DEVICE_REQUEST:
+            g_maple_dev_req++;
             if (dst & 0x40) g_maple_port = dst >> 6;   // capture port addressing
             if (!(dst & 3)) {                           // main device
-                out.header = /*hdr DEVICE_STATUS, len=28 words*/ 0;  // DAT_10001eb8
+                out.header = MAPLE_HDR_DEVICE_STATUS_MAIN;   // cmd 5, 28 words (112B devinfo)
                 out.payload = g_devinfo_payload;
                 maple_tx_frame(&tx_ctx, &out);
             } else if (to_vmu) {
@@ -403,14 +411,16 @@ void maple_core1_main(void)
             break;
         case MAPLE_CMD_ALL_STATUS_REQ:
             if (to_vmu || to_rumble) break;            // sub-devices don't answer (raw gate)
-            out.header = /*DAT_10001edc*/ 0; out.payload = allstat;
+            out.header = MAPLE_HDR_ALL_STATUS; out.payload = allstat;
             maple_tx_frame(&tx_ctx, &out);
             break;
         case MAPLE_CMD_GET_CONDITION:
+            g_maple_get_cond++;
             if (frames_lo > 100) vmu_flush_dirty(vmu_buf, frames_lo, 0);
             if (dst & 0x20) {                          // addressed to main device
                 if (func == MAPLE_FUNC_CONTROLLER) {
-                    out.header = 0; out.payload = (uint8_t *)&g_dc_controller_cond;
+                    out.header = MAPLE_HDR_DATA_COND_CONTROLLER;
+                    out.payload = (uint8_t *)&g_dc_controller_cond;
                     maple_tx_frame(&tx_ctx, &out);
                 } else if (func == MAPLE_FUNC_MOUSE) {
                     maple_tx_frame(&tx_ctx, /*mouse cond*/ &out);

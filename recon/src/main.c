@@ -9,6 +9,8 @@
 #include "storage/storage.h"
 #include "maple/maple.h"
 #include "control.h"
+#include "usb/usb_host.h"
+#include "bt/bp32_platform.h"
 
 // cross-module entry points
 extern void maple_core1_main(void);                 // 0x10000298 (runs on core1)
@@ -88,7 +90,13 @@ int main(void)
         // heartbeat every ~3s so the log shows the loop is alive + current status
         if (time_us_64() - hb > 3000000) {
             hb = time_us_64();
-            printf("[hb] alive  usb_pad=%d  layout=%d\n", usb_pad_connected(), g_active_layout);
+            extern volatile uint32_t g_maple_frames, g_maple_dev_req, g_maple_get_cond;
+            const p2m_gamepad_t *gp = usb_get_gamepad(); if (!gp) gp = bp32_get_gamepad();
+            printf("[hb] usb_pad=%d bt_pad=%d layout=%d | DC frames=%lu devreq=%lu cond=%lu%s\n",
+                   usb_pad_connected(), bp32_pad_connected(), g_active_layout,
+                   (unsigned long)g_maple_frames, (unsigned long)g_maple_dev_req,
+                   (unsigned long)g_maple_get_cond,
+                   gp ? "  [pad active]" : "");
         }
 
         // Mode button: short press cycles VMU bank; long hold toggles a built-in layout.
