@@ -46,6 +46,7 @@ volatile uint32_t g_maple_frames, g_maple_dev_req, g_maple_get_cond;
 // raw RX activity: FIFO words pulled / resyncs on garbage — tells "no line activity" apart
 // from "activity we can't sync on"
 volatile uint32_t g_maple_rx_words, g_maple_rx_resync;
+volatile uint32_t g_maple_cond_sent;   // controller condition replies actually transmitted
 // @0x20001668: attached sub-peripheral mask (P2M_SUBPERIPH_*); also patches sender AP on TX
 uint8_t g_subperiph_mask;
 // @0x2000e970: RX frame buffer (0x400 bytes: len,src,dst,cmd + payload + xor)
@@ -549,6 +550,7 @@ void maple_core1_main(void)
                     out.header = MAPLE_HDR_DATA_COND_CONTROLLER;
                     out.payload = (uint8_t *)&g_dc_controller_cond;
                     maple_tx_frame(&tx_ctx, &out);
+                    g_maple_cond_sent++;
                 } else if (func == MAPLE_FUNC_MOUSE) {
                     maple_tx_frame(&tx_ctx, /*mouse cond*/ &out);
                     g_dc_mouse_cond.dx = g_dc_mouse_cond.dy = 0x200;

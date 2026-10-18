@@ -10,14 +10,17 @@ extern volatile int16_t g_active_layout;   // selects the controller subtype for
 typedef struct { uint32_t header; uint8_t *body; } devinfo_ref_t;
 
 static const char dc_name_controller[30] = "Dreamcast Controller          ";
+static const char dc_name_twinstick[30]  = "Twin Stick                    ";
+static const char dc_name_racing[30]     = "Racing Controller             ";
 static const char dc_name_keyboard[30]   = "Keyboard                      ";
 static const char dc_name_mouse[30]      = "Dreamcast Mouse               ";
 static const char dc_license[60] =
     "Produced By or Under License From SEGA ENTERPRISES,LTD.     ";
 
 // from 0x1000066c — fill the 112-byte Maple device-info `body` for `func`, and point `ref`
-// at it. The controller case carries per-layout capability bits.
-// TODO(verify @0x1000066c): exact fdata capability masks per subtype (standard/twinstick/racing).
+// at it. Capability words below are the binary's verbatim literals (DAT_10000804/0x820 + the
+// case-2/4 byte stores); the TX path reverses payload word bytes, so on the console they read
+// as 0x003fffff (std/twin-stick), 0x00fe0007... (racing), 0x000f06fe (canonical controller).
 void maple_build_device_info_blocks(void *ref_, void *body_, int func)
 {
     devinfo_ref_t *ref = (devinfo_ref_t *)ref_;
@@ -29,16 +32,19 @@ void maple_build_device_info_blocks(void *ref_, void *body_, int func)
 
     if (func == MAPLE_FUNC_CONTROLLER) {
         funccode = 0x00000001;
-        // standard Dreamcast controller capability (all buttons + 2 triggers + stick)
-        fdata0 = 0x000f06fe;                  // TODO(verify): per-layout variants
-        name = dc_name_controller;
+        switch (g_active_layout) {
+        case 1: case 3: fdata0 = 0xffff3f00; name = dc_name_controller; break;
+        case 2:         fdata0 = 0xffff3f00; name = dc_name_twinstick;  break;
+        case 4:         fdata0 = 0xfe000700; name = dc_name_racing;     break;
+        default:        fdata0 = 0xfe060f00; name = dc_name_controller; break;
+        }
     } else if (func == MAPLE_FUNC_KEYBOARD) {
         funccode = 0x00000040;
-        fdata0 = 0x80000502;                  // keyboard, US layout // TODO(verify)
+        fdata0 = 0x80000502;                  // keyboard (bytes 02 05 00 80, verbatim)
         name = dc_name_keyboard;
     } else if (func == MAPLE_FUNC_MOUSE) {
         funccode = 0x00000200;
-        fdata0 = 0x000e0700;                  // mouse: 3 buttons + 2 axes + wheel // TODO(verify)
+        fdata0 = 0x00070e00;                  // mouse (bytes 00 0e 07 00, verbatim)
         name = dc_name_mouse;
     }
 

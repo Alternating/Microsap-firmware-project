@@ -96,16 +96,16 @@ int main(void)
         if (time_us_64() - hb > 3000000) {
             hb = time_us_64();
             extern volatile uint32_t g_maple_frames, g_maple_dev_req, g_maple_get_cond;
-            extern volatile uint32_t g_maple_rx_words, g_maple_rx_resync;
+            extern volatile uint32_t g_maple_rx_words, g_maple_rx_resync, g_maple_cond_sent;
             extern dc_controller_cond_t g_dc_controller_cond;
             const p2m_gamepad_t *gp = usb_get_gamepad(); if (!gp) gp = bp32_get_gamepad();
             const dc_controller_cond_t *c = &g_dc_controller_cond;
             printf("[hb] usb_pad=%d bt_pad=%d layout=%d | DC rxw=%lu rsync=%lu frames=%lu "
-                   "devreq=%lu cond=%lu%s | out: btn=%04x lt=%02x rt=%02x stick=%02x,%02x\n",
+                   "devreq=%lu cond=%lu/%lu%s | out: btn=%04x lt=%02x rt=%02x stick=%02x,%02x\n",
                    usb_pad_connected(), bp32_pad_connected(), g_active_layout,
                    (unsigned long)g_maple_rx_words, (unsigned long)g_maple_rx_resync,
                    (unsigned long)g_maple_frames, (unsigned long)g_maple_dev_req,
-                   (unsigned long)g_maple_get_cond,
+                   (unsigned long)g_maple_get_cond, (unsigned long)g_maple_cond_sent,
                    gp ? " [pad active]" : "",
                    c->buttons, c->ltrig, c->rtrig, c->joyx, c->joyy);
         }
