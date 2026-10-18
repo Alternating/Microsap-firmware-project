@@ -53,6 +53,7 @@ void control_init(void)
 void controller_poll(void)
 {
     const p2m_gamepad_t *active = usb_get_gamepad();
+    if (!active) active = xinput_get_gamepad();
     if (!active) active = bp32_get_gamepad();
 
     p2m_gamepad_t gp;
@@ -106,8 +107,10 @@ void controller_poll(void)
 void rumble_tick(void)
 {
     if (!s_rumble_pending) return;
-    if (g_rumble_enabled)
-        bp32_set_rumble(s_rumble_strength, s_rumble_duration);   // TODO: USB pad rumble path
+    if (g_rumble_enabled) {
+        if (xinput_pad_connected()) xinput_set_rumble(s_rumble_strength);
+        else bp32_set_rumble(s_rumble_strength, s_rumble_duration);
+    }
     s_rumble_pending = false;
 }
 

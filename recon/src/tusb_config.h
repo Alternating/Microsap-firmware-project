@@ -25,6 +25,7 @@
 #define CFG_TUH_ENUMERATION_BUFSIZE 256
 
 #define CFG_TUH_HID           4           // up to 4 HID interfaces (pads/kbd/mouse)
+#define CFG_TUH_XINPUT        2           // USB Xbox controllers (tusb_xinput host driver)
 #define CFG_TUH_HID_EPIN_BUFSIZE  64
 #define CFG_TUH_HID_EPOUT_BUFSIZE 64
 

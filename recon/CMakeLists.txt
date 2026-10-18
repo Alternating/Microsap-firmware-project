@@ -7,7 +7,10 @@ cmake_minimum_required(VERSION 3.13)
 set(PICO_SDK_PATH   "$ENV{PICO_SDK_PATH}"   CACHE PATH "pico-sdk 2.2.0")
 set(BLUEPAD32_ROOT  "$ENV{BLUEPAD32_ROOT}"  CACHE PATH "ricardoquesada/bluepad32 5.x (+ external/btstack)")
 set(SDFATFS_ROOT    "$ENV{SDFATFS_ROOT}"    CACHE PATH "carlk3 no-OS-FatFS-SD")
-set(TUSB_XINPUT_ROOT "$ENV{TUSB_XINPUT_ROOT}" CACHE PATH "Ryzee119/tusb_xinput (optional)")
+set(TUSB_XINPUT_ROOT "$ENV{TUSB_XINPUT_ROOT}" CACHE PATH "Ryzee119/tusb_xinput")
+if(NOT TUSB_XINPUT_ROOT)
+    set(TUSB_XINPUT_ROOT /app/data/home/refs/tusb_xinput)
+endif()
 if(NOT PICO_SDK_PATH)
     message(FATAL_ERROR "Set PICO_SDK_PATH to a pico-sdk 2.2.0 checkout")
 endif()
@@ -52,14 +55,16 @@ add_executable(pico2maple
     src/assets/bootlogo.c
     src/hw_config.c
     src/bt/bt_main.c
+    src/usb/xinput.c
+    ${TUSB_XINPUT_ROOT}/xinput_host.c
     ${BTSTACK_MISSING_SOURCES}   # hci_event_builder.c, new in btstack v1.8
-    # TODO still to write: src/usb/xinput.c (tusb_xinput glue)
 )
 
 pico_generate_pio_header(pico2maple ${CMAKE_CURRENT_LIST_DIR}/src/maple.pio)
 
 target_include_directories(pico2maple PRIVATE
     src
+    ${TUSB_XINPUT_ROOT}
     ${BLUEPAD32_ROOT}/src/components/bluepad32/include
     ${BTSTACK_ROOT}/src
     ${BTSTACK_ROOT}/3rd-party/bluedroid/encoder/include

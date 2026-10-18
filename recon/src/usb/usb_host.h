@@ -17,6 +17,9 @@ void usb_get_keyboard(uint8_t out[8]);        // boot-keyboard report: mod,res,6
 void usb_get_mouse(int8_t *dx, int8_t *dy, uint8_t *buttons, int8_t *wheel); // deltas, cleared on read
 
 // XInput arrives via a separate driver (Ryzee119/tusb_xinput); this hook normalizes its report.
-void usb_xinput_report(const void *xid_report, p2m_gamepad_t *gp);   // TODO: wire tusb_xinput
+// xinput (USB Xbox controllers) — src/usb/xinput.c
+bool xinput_pad_connected(void);
+const p2m_gamepad_t *xinput_get_gamepad(void);
+void xinput_set_rumble(uint8_t strength);
 
 #endif
