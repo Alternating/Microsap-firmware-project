@@ -50,6 +50,7 @@ add_executable(pico2maple
     src/oled/oled.c
     src/usb/usb_host.c
     src/bt/bp32_platform.c
+    src/bt/pulsar_link.c
     src/board.c
     src/assets/p2m_assets.c
     src/assets/bootlogo.c
@@ -61,6 +62,13 @@ add_executable(pico2maple
 )
 
 pico_generate_pio_header(pico2maple ${CMAKE_CURRENT_LIST_DIR}/src/maple.pio)
+
+# tusb_xinput ae4f3a9 declares xinputh_open as uint16_t (it returns the consumed descriptor
+# length) where TinyUSB 0.18's driver table wants bool. GCC >= 14 makes that initializer a hard
+# error; keep it the warning it was under the 13.2 toolchain BUILD.md was tested with. TinyUSB
+# never calls that pointer: src/usb/xinput.c hands it a bool-typed adapter instead.
+set_source_files_properties(${TUSB_XINPUT_ROOT}/xinput_host.c PROPERTIES
+    COMPILE_OPTIONS "-Wno-error=incompatible-pointer-types")
 
 target_include_directories(pico2maple PRIVATE
     src
