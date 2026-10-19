@@ -1,0 +1,23 @@
+diff --git a/src/components/bluepad32/bt/uni_bt_le.c b/src/components/bluepad32/bt/uni_bt_le.c
+index 131f429..146e15f 100644
+--- a/src/components/bluepad32/bt/uni_bt_le.c
++++ b/src/components/bluepad32/bt/uni_bt_le.c
+@@ -316,6 +316,18 @@ static void uni_hids_client_packet_handler(uint8_t packet_type, uint16_t channel
+                         logi("Client notifications enabled for for hids_cid=%d\n", hids_cid);
+ #endif
+ 
++                    // Pico2Maple local patch (ported from cluoma's fork, commit 9f888c9):
++                    // collect the HID descriptor at setup time. Xbox BLE pads need it before
++                    // the parser is chosen; collecting lazily on the first report races
++                    // set_ready and yields a connected-but-silent pad.
++                    if (device->hid_descriptor_len == 0 &&
++                        gattservice_subevent_hid_service_connected_get_num_instances(packet) > 0) {
++                        const uint8_t* dd = hids_host_descriptor_storage_get_descriptor_data(hids_cid, 0);
++                        uint16_t dl = hids_host_descriptor_storage_get_descriptor_len(hids_cid, 0);
++                        if (dd && dl)
++                            uni_hid_device_set_hid_descriptor(device, dd, dl);
++                    }
++
+                     uni_hid_device_guess_controller_type_from_pid_vid(device);
+                     uni_hid_device_connect(device);
+                     uni_hid_device_set_ready(device);
