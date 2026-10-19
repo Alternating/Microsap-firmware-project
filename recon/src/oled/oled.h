@@ -10,10 +10,10 @@
 // `rotated` selects the flipped panel orientation (the repo's "rotated_screen" builds).
 void oled_init(bool rotated);                 // from 0x10002d64
 
-// Push the current framebuffer to the panel (blocking I2C).
-void oled_present(void);
+// Start a DMA push of the framebuffer; false if the last one is still streaming. Core0 only.
+bool oled_present(void);
 void oled_refresh_kick(void);                 // from 0x10002eb8: mark the frame stale (any core)
-void oled_service(void);                      // core0 loop: present it if stale (blocking I2C)
+void oled_service(void);                      // core0 loop: present it if stale (DMA, no wait)
 
 // Upscale the 48x32 1bpp VMU LCD into the framebuffer region. from 0x10002ef4
 void vmu_lcd_upscale(const uint8_t *lcd_fb);  // from 0x10002ef4
