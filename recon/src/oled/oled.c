@@ -34,7 +34,7 @@ static uint8_t *g_oled_fb;          // @*DAT_10002e80 / *DAT_10002ca8
 static int      g_oled_dma_ch;      // @*DAT_100022cc-ish
 static volatile bool g_oled_enabled;   // set by core1 at the end of oled_init; read by core0
 
-// The DMA push's transfer buffer, see oled_present.
+// The DMA push's transfer buffer, see tx_start.
 #define TX_CMDS  7
 #define TX_LEN   (TX_CMDS + 1 + 1024)
 static uint16_t s_tx[TX_LEN];
@@ -157,23 +157,20 @@ static const uint16_t s_tx_head[TX_CMDS + 1] = {
     0x00, 0x21, 0x00, 0x7F, 0x22, 0x00, 0x07 | I2C_STOP_FLAG, 0x40,
 };
 static uint64_t s_tx_started_us;
+static bool     s_tx_aborting;      // a wedged push is being aborted by the controller
 
-// A push never takes more than ~12 ms. One still running after 100 ms is wedged (a bus fault
-// mid-frame) and is dropped, so the display recovers rather than freezing.
-static bool tx_in_flight(void)
+// A push owns the bus while the DMA is feeding it or bytes are still in the FIFO or on the wire.
+static bool tx_busy(const i2c_hw_t *hw)
 {
-    return dma_channel_is_busy(g_oled_dma_ch) && time_us_64() - s_tx_started_us < 100000;
+    return dma_channel_is_busy(g_oled_dma_ch) || !(hw->status & I2C_IC_STATUS_TFE_BITS)
+        || (hw->status & I2C_IC_STATUS_ACTIVITY_BITS);
 }
 
-// Start pushing the framebuffer to the panel and return at once; false if the previous push
-// is still streaming (the caller keeps the frame pending). The framebuffer is copied first,
-// so drawing can go on during the transfer.
-bool oled_present(void)
+// Copy the framebuffer into the transfer buffer and start the DMA; returns at once. The copy
+// lets drawing go on during the ~11.5 ms the frame takes on the wire.
+static void tx_start(i2c_hw_t *hw)
 {
-    if (!g_oled_fb || tx_in_flight()) return false;
-    if (dma_channel_is_busy(g_oled_dma_ch)) dma_channel_abort(g_oled_dma_ch);
     // A NAK (panel missing or glitched) holds the TX FIFO flushed until the abort is cleared.
-    i2c_hw_t *hw = i2c_get_hw(OLED_I2C);
     if (hw->tx_abrt_source) (void)hw->clr_tx_abrt;
 
     memcpy(s_tx, s_tx_head, sizeof s_tx_head);
@@ -183,7 +180,6 @@ bool oled_present(void)
 
     s_tx_started_us = time_us_64();
     dma_channel_transfer_from_buffer_now(g_oled_dma_ch, s_tx, TX_LEN);
-    return true;
 }
 
 // from 0x10002eb8 — in the original a DMA kick: the caller never waited for the panel.
@@ -199,14 +195,34 @@ void oled_refresh_kick(void)
     s_present_pending = true;
 }
 
-// Core0 main loop: start a push if a kick is pending and the last push is done. A kick during
-// the push re-arms it.
+// Core0 main loop: start a push if a kick is pending and the bus is free. A kick during the push
+// re-arms it. Never waits on the panel.
 void oled_service(void)
 {
-    if (!g_oled_enabled || !s_present_pending || tx_in_flight()) return;
+    if (!g_oled_enabled) return;
+    i2c_hw_t *hw = i2c_get_hw(OLED_I2C);
+
+    if (s_tx_aborting) {
+        if (hw->enable & I2C_IC_ENABLE_ABORT_BITS) return;   // controller still aborting
+        (void)hw->clr_tx_abrt;
+        s_tx_aborting = false;
+    }
+    if (tx_busy(hw)) {
+        // A frame takes ~12 ms. One still on the bus after 100 ms is wedged (the clock held low
+        // mid-frame). Stopping the DMA alone would leave the data transaction open, and the next
+        // frame's window commands would land as pixels; the controller's ABORT sends a STOP and
+        // flushes the FIFO, so the next push starts a clean transaction. The frame is repainted.
+        if (time_us_64() - s_tx_started_us < 100000) return;
+        dma_channel_abort(g_oled_dma_ch);
+        hw->enable |= I2C_IC_ENABLE_ABORT_BITS;
+        s_tx_aborting = true;
+        s_present_pending = true;
+        return;
+    }
+    if (!s_present_pending) return;
     s_present_pending = false;
     __dmb();
-    oled_present();
+    tx_start(hw);
 }
 
 // from 0x10002ef4 — upscale the 48x32 1bpp VMU LCD into the framebuffer's main area.

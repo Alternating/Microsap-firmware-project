@@ -10,8 +10,6 @@
 // `rotated` selects the flipped panel orientation (the repo's "rotated_screen" builds).
 void oled_init(bool rotated);                 // from 0x10002d64
 
-// Start a DMA push of the framebuffer; false if the last one is still streaming. Core0 only.
-bool oled_present(void);
 void oled_refresh_kick(void);                 // from 0x10002eb8: mark the frame stale (any core)
 void oled_service(void);                      // core0 loop: present it if stale (DMA, no wait)
 
