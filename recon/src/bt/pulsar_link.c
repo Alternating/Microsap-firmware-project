@@ -360,6 +360,7 @@ static void store_tick(btstack_timer_source_t *ts)
     uint32_t now = btstack_run_loop_get_time_ms();
     if (s_store.pulling) pull_service(l, now);
     else if (s_store.pulled && (l->flags & PULSAR_FLAG_VMU)) push_service(l, now);
+    pulsar_lcd_progress(s_store.pulling ? s_store.i : 0, s_store.pulling ? s_store.n : 0);
     pulsar_lcd_service(l->con, l->chr_lcd.value_handle, l->mtu);
 }
 

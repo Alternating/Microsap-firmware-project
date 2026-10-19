@@ -54,6 +54,7 @@ add_executable(pico2maple
     src/bt/bp32_platform.c
     src/bt/pulsar_link.c
     src/bt/pulsar_lcd.c
+    src/bt/pulsar_screen.c
     src/board.c
     src/assets/p2m_assets.c
     src/assets/bootlogo.c

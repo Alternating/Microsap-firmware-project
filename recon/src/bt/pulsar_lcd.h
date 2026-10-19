@@ -12,6 +12,10 @@
 void pulsar_lcd_init(void);                  // claims the mailbox lock; core1 init, before bt_init
 extern const vmu_display_t g_vmu_display_pulsar;
 
+// BLE context only. The pull's progress, set by the link before each service: done of total
+// blocks, total 0 when no pull runs. While a pull runs the Pulsar's screen is the loading screen
+// (pulsar_screen.h), not the console's art, which is a card the player cannot use yet.
+void pulsar_lcd_progress(unsigned done, unsigned total);
 // BLE context only. Called on the link's tick: writes the frame in flight, or the newest from the
 // mailbox; returns at the first busy write, to carry on at the next tick.
 void pulsar_lcd_service(uint16_t con, uint16_t value_handle, uint16_t mtu);
