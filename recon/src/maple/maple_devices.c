@@ -94,6 +94,7 @@ void dc_reset_device_mode(void)               // 0x1000151c
 #include "maple_frames.h"
 #include "vmu.h"
 #include "pulsar_card.h"
+#include "bt/pulsar_lcd.h"
 #include "control.h"     // rumble_start / rumble_set_block (drained on core0 by rumble_tick)
 
 extern uint8_t g_subperiph_mask;
@@ -114,6 +115,8 @@ void maple_subdevs_init(void)
 {
     s_vmu.store = &g_vmu_store_flash_sd;
     s_vmu.sinks[0] = &g_vmu_display_oled;
+    pulsar_lcd_init();
+    s_vmu.sinks[1] = &g_vmu_display_pulsar;   // the Pulsar's screen, while a Pulsar is linked
     vmu_init(&s_vmu);
     vmu_load_bank(&s_vmu, 0, false);   // core1 loads the default bank; control_init re-picks later
     s_vmu_ready = true;

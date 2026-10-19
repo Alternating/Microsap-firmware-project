@@ -12,6 +12,7 @@
 #include "btstack.h"
 #include "pico/cyw43_arch.h"
 #include "pulsar_link.h"
+#include "pulsar_lcd.h"
 #include "maple/pulsar_card.h"
 
 #ifndef CONFIG_BLUEPAD32_MAX_DEVICES
@@ -359,6 +360,7 @@ static void store_tick(btstack_timer_source_t *ts)
     uint32_t now = btstack_run_loop_get_time_ms();
     if (s_store.pulling) pull_service(l, now);
     else if (s_store.pulled && (l->flags & PULSAR_FLAG_VMU)) push_service(l, now);
+    pulsar_lcd_service(l->con, l->chr_lcd.value_handle, l->mtu);
 }
 
 // The owner's link dropped. The card leaves the bus; the session, the image and what is still
@@ -373,6 +375,7 @@ static void store_drop(void)
     store_forget_push();
     s_store.pulling = false;
     s_store.owner = NULL;
+    pulsar_lcd_reset();
 }
 
 static void decode_status(pl_link_t *l, const uint8_t *v, uint16_t len)
@@ -634,9 +637,10 @@ const char *pulsar_link_heartbeat(void)
                      st.nflight, (unsigned long)st.written, (unsigned long)st.failed,
                      (unsigned long)g_pulsar_card_commits, (unsigned long)g_pulsar_card_refused);
         else                snprintf(card, sizeof card, "off");
-        snprintf(buf, sizeof buf, "ready mtu=%u st=f:%02x q:%u ep:%lu card:%08lx n=%lu | card %s",
+        snprintf(buf, sizeof buf, "ready mtu=%u st=f:%02x q:%u ep:%lu card:%08lx n=%lu | card %s lcd %lu/%lu",
                  snap.mtu, snap.flags, snap.queue_free, (unsigned long)snap.epoch,
-                 (unsigned long)snap.card, (unsigned long)snap.status_count, card);
+                 (unsigned long)snap.card, (unsigned long)snap.status_count, card,
+                 (unsigned long)g_pulsar_lcd_sent, (unsigned long)g_pulsar_lcd_in);
         return buf;
     }
     default:
