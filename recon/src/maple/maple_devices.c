@@ -97,9 +97,10 @@ void dc_reset_device_mode(void)               // 0x1000151c
 
 extern uint8_t g_subperiph_mask;
 
-// Their VMU, slot 1. Aligned: the packed state's u32 fields are word-accessed by vmu.c, and
-// a packed type alone has alignment 1.
-static vmu_state_t s_vmu __attribute__((aligned(4)));
+// Their VMU, slot 1: store{internal flash, SD} + display{OLED} (vmu_backend.c), wired in
+// maple_subdevs_init. No initializer here: one would move the whole 132 KB state from .bss
+// into .data, a flash copy of it made at every boot.
+static vmu_t s_vmu;
 static bool s_vmu_ready;
 // TODO(vmu): the console rejected the VMU when it was last advertised (b09fd43); slot 1 stays
 // off until its device info and state are fixed.
@@ -109,6 +110,8 @@ static bool vmu_present(void *ctx) { (void)ctx; return s_vmu_ready && s_vmu_adve
 
 void maple_subdevs_init(void)
 {
+    s_vmu.store = &g_vmu_store_flash_sd;
+    s_vmu.sinks[0] = &g_vmu_display_oled;
     vmu_init(&s_vmu);
     vmu_load_bank(&s_vmu, 0, false);   // core1 loads the default bank; control_init re-picks later
     s_vmu_ready = true;
