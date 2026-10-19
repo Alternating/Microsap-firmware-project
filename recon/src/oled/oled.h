@@ -12,7 +12,8 @@ void oled_init(bool rotated);                 // from 0x10002d64
 
 // Push the current framebuffer to the panel (blocking I2C).
 void oled_present(void);
-void oled_refresh_kick(void);                 // from 0x10002eb8 (now presents the framebuffer)
+void oled_refresh_kick(void);                 // from 0x10002eb8: mark the frame stale (any core)
+void oled_service(void);                      // core0 loop: present it if stale (blocking I2C)
 
 // Upscale the 48x32 1bpp VMU LCD into the framebuffer region. from 0x10002ef4
 void vmu_lcd_upscale(const uint8_t *lcd_fb);  // from 0x10002ef4

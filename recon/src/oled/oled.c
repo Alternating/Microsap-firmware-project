@@ -13,6 +13,7 @@
 #include "hardware/i2c.h"
 #include "hardware/dma.h"
 #include "hardware/gpio.h"
+#include "hardware/sync.h"
 #include "pico/time.h"
 #include "oled.h"
 #include "../assets/p2m_assets.h"
@@ -31,7 +32,7 @@ extern uint8_t g_oled_scl_pin;      // GPIO5
 
 static uint8_t *g_oled_fb;          // @*DAT_10002e80 / *DAT_10002ca8
 static int      g_oled_dma_ch;      // @*DAT_100022cc-ish
-static bool     g_oled_enabled;
+static volatile bool g_oled_enabled;   // set by core1 at the end of oled_init; read by core0
 
 // Store one display byte into framebuffer entry `index` (low byte = data).
 static inline void fb_put(unsigned index, uint8_t v)
@@ -150,8 +151,27 @@ void oled_present(void)
     ssd1306_send(line, 1024, 0, 0x7F, 0, 7);
 }
 
-// from 0x10002eb8 — present the framebuffer (was a DMA kick; now a blocking push).
-void oled_refresh_kick(void) { oled_present(); }
+// from 0x10002eb8 — in the original a DMA kick: the caller never waited for the panel.
+// oled_present is a blocking I2C push instead, ~11.5 ms for a frame at 800 kHz, and the kick's
+// callers include core1's Maple reply path (VMU LCD and block writes, the flush before a
+// GET_CONDITION reply), where the budget is ~100 us. So a kick only marks the frame stale and
+// core0's loop pushes it (oled_service). That also makes core0 the only user of the I2C bus and
+// of oled_present's staging buffer, which core0's layout toggle and core1 used to share.
+static volatile bool s_present_pending;
+void oled_refresh_kick(void)
+{
+    __dmb();                     // framebuffer writes before the flag
+    s_present_pending = true;
+}
+
+// Core0 main loop: push the framebuffer if a kick is pending. A kick during the push re-arms it.
+void oled_service(void)
+{
+    if (!g_oled_enabled || !s_present_pending) return;
+    s_present_pending = false;
+    __dmb();
+    oled_present();
+}
 
 // from 0x10002ef4 — upscale the 48x32 1bpp VMU LCD into the framebuffer's main area.
 // Functional reconstruction: the original is a dense bit-packing loop. The VMU LCD is 48x32,
