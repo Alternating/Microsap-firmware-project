@@ -117,6 +117,7 @@ int main(void)
             extern volatile uint32_t g_maple_rx_words, g_maple_rx_resync, g_maple_cond_sent, g_maple_devreq_sent, g_maple_last_miss;
             extern volatile uint32_t g_bp32_reports;
             extern volatile uint64_t g_bp32_last_report_us;
+            extern const char *pulsar_link_heartbeat(void);
             static uint32_t prev_reports;
             uint32_t rate = (g_bp32_reports - prev_reports) / 3;
             prev_reports = g_bp32_reports;
@@ -130,7 +131,7 @@ int main(void)
             const dc_controller_cond_t *c = &g_dc_controller_cond;
             extern uint8_t g_storage_status;
             printf("[hb] sd=%u usb_pad=%d xpad=%d bt_pad=%d layout=%d | DC rxw=%lu rsync=%lu frames=%lu "
-                   "devreq=%lu/%lu cond=%lu/%lu miss=%06lx%s | bt %lu/s age=%lums | out: btn=%04x lt=%02x rt=%02x stick=%02x,%02x s2=%02x,%02x\n",
+                   "devreq=%lu/%lu cond=%lu/%lu miss=%06lx%s | bt %lu/s age=%lums | out: btn=%04x lt=%02x rt=%02x stick=%02x,%02x s2=%02x,%02x | pulsar=%s\n",
                    g_storage_status, usb_pad_connected(), xinput_pad_connected(), bp32_pad_connected(), g_active_layout,
                    (unsigned long)g_maple_rx_words, (unsigned long)g_maple_rx_resync,
                    (unsigned long)g_maple_frames, (unsigned long)g_maple_dev_req,
@@ -139,7 +140,7 @@ int main(void)
                    (unsigned long)g_maple_last_miss,
                    gp ? " [pad active]" : "",
                    (unsigned long)rate, (unsigned long)age_ms,
-                   c->buttons, c->ltrig, c->rtrig, c->joyx, c->joyy, c->joy2x, c->joy2y);
+                   c->buttons, c->ltrig, c->rtrig, c->joyx, c->joyy, c->joy2x, c->joy2y, pulsar_link_heartbeat());
         }
 
         // Serial console commands (debug UART): CLI reflash/reboot without touching BOOTSEL.

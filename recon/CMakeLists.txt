@@ -50,6 +50,7 @@ add_executable(pico2maple
     src/oled/oled.c
     src/usb/usb_host.c
     src/bt/bp32_platform.c
+    src/bt/pulsar_link.c
     src/board.c
     src/assets/p2m_assets.c
     src/assets/bootlogo.c
