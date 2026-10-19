@@ -37,9 +37,12 @@
 #define MAPLE_FUNC_MOUSE      0x200
 
 // Sub-peripheral present/enable mask (global @0x20001668; bit0=VMU, bit1=Puru Puru).
+// The Pulsar's card is ours and takes slot 2 while their Puru Puru stays unreconstructed: the BIOS
+// draws two cards per controller and never lists slot 3 (bench, 2026-10-19).
 // The same byte patches the sender-AP sub-bits on every TX (0x10001660).
 #define P2M_SUBPERIPH_VMU     0x01
 #define P2M_SUBPERIPH_RUMBLE  0x02
+#define P2M_SUBPERIPH_PULSAR  0x02
 
 // Dreamcast controller condition (@0x20005e2c), FUNC_CONTROLLER GET_CONDITION payload:
 //   u32 func_be; u16 buttons (active low); u8 rtrig, ltrig; u8 joyx, joyy, joy2x, joy2y;

@@ -93,6 +93,8 @@ void dc_reset_device_mode(void)               // 0x1000151c
 #include "maple_subdev.h"
 #include "maple_frames.h"
 #include "vmu.h"
+#include "pulsar_card.h"
+#include "bt/pulsar_lcd.h"
 #include "control.h"     // rumble_start / rumble_set_block (drained on core0 by rumble_tick)
 
 extern uint8_t g_subperiph_mask;
@@ -113,9 +115,12 @@ void maple_subdevs_init(void)
 {
     s_vmu.store = &g_vmu_store_flash_sd;
     s_vmu.sinks[0] = &g_vmu_display_oled;
+    pulsar_lcd_init();
+    s_vmu.sinks[1] = &g_vmu_display_pulsar;   // the Pulsar's screen, while a Pulsar is linked
     vmu_init(&s_vmu);
     vmu_load_bank(&s_vmu, 0, false);   // core1 loads the default bank; control_init re-picks later
     s_vmu_ready = true;
+    pulsar_card_init();                // before bt_init: core0 waits for g_core1_ready first
 }
 
 void maple_subdev_vmu_bank_cycle(bool forward)
@@ -126,7 +131,15 @@ void maple_subdev_vmu_bank_cycle(bool forward)
 // Their Puru Puru, slot 2. It has no device info yet (the original's lives at 0x100a2994 and
 // was never reconstructed), so it is never present and the console never addresses it. The
 // arms are kept so that giving it device info is the only step left; the ones that sent an
-// empty frame now send nothing.
+// empty frame now send nothing. Off the table while the Pulsar's card holds slot 2: bringing it
+// back means moving one of them, which the BIOS's two-card limit makes a real choice.
+#ifndef P2M_RUMBLE_SUBDEV
+#define P2M_RUMBLE_SUBDEV 0
+#endif
+#if P2M_RUMBLE_SUBDEV
+#if P2M_SUBPERIPH_RUMBLE == P2M_SUBPERIPH_PULSAR
+#error "slot 2 is the Pulsar's card; move one of them before enabling the Puru Puru"
+#endif
 static bool rumble_present(void *ctx) { (void)ctx; return false; }
 
 static int rumble_handle(void *ctx, const maple_req_t *rq, maple_frame_t *out)
@@ -142,13 +155,20 @@ static int rumble_handle(void *ctx, const maple_req_t *rq, maple_frame_t *out)
     out->payload = 0;
     return MAPLE_SUBDEV_REPLY;
 }
+#endif
 
 const maple_subdev_t g_maple_subdevs[] = {
     { .slot_bit = P2M_SUBPERIPH_VMU, .func = MAPLE_FUNC_STORAGE | MAPLE_FUNC_LCD | MAPLE_FUNC_CLOCK,
       .devinfo = (const uint8_t *)&g_vmu_identity, .ctx = &s_vmu, .present = vmu_present, .handle = vmu_subdev_handle,
       .after = vmu_subdev_after, .tick = vmu_subdev_tick },
+#if P2M_RUMBLE_SUBDEV
     { .slot_bit = P2M_SUBPERIPH_RUMBLE, .func = MAPLE_FUNC_VIBRATION,
       .devinfo = NULL, .ctx = NULL, .present = rumble_present, .handle = rumble_handle },
+#endif
+    // The Pulsar's docked VMU, slot 2: storage only, present while the link has it (pulsar_card.c).
+    { .slot_bit = P2M_SUBPERIPH_PULSAR, .func = MAPLE_FUNC_STORAGE,
+      .devinfo = (const uint8_t *)&g_pulsar_card_identity.info, .ctx = NULL,
+      .present = pulsar_card_present, .handle = pulsar_card_handle },
 };
 const unsigned g_maple_subdev_count = sizeof g_maple_subdevs / sizeof g_maple_subdevs[0];
 
