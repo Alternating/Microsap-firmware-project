@@ -48,7 +48,7 @@
 #define MAX_NR_GATT_CLIENTS 4
 #define MAX_NR_HCI_CONNECTIONS 4
 #define MAX_NR_HID_HOST_CONNECTIONS 4
-#define MAX_NR_HIDS_CLIENTS 4
+#define MAX_NR_HIDS_HOSTS 4   // BTstack >= 1.8 name; the old _CLIENTS name left BLE HID with no allocation
 #define MAX_NR_HFP_CONNECTIONS 1
 #define MAX_NR_L2CAP_CHANNELS 6
 #define MAX_NR_L2CAP_SERVICES 5
