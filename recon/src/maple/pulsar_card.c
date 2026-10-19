@@ -1,4 +1,4 @@
-// pulsar_card.c — the VMU docked in a Pulsar, as a second, storage-only card in slot 3.
+// pulsar_card.c — the VMU docked in a Pulsar, as a second, storage-only card in slot 2.
 // Story 025, ADR 002 (bridge repo). Fresh C; the bridge's design, none of its code.
 //
 // Slot 1 writes its image as each BLOCK_WRITE phase lands (vmu.c) and persists pages later.

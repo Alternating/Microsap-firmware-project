@@ -131,7 +131,15 @@ void maple_subdev_vmu_bank_cycle(bool forward)
 // Their Puru Puru, slot 2. It has no device info yet (the original's lives at 0x100a2994 and
 // was never reconstructed), so it is never present and the console never addresses it. The
 // arms are kept so that giving it device info is the only step left; the ones that sent an
-// empty frame now send nothing.
+// empty frame now send nothing. Off the table while the Pulsar's card holds slot 2: bringing it
+// back means moving one of them, which the BIOS's two-card limit makes a real choice.
+#ifndef P2M_RUMBLE_SUBDEV
+#define P2M_RUMBLE_SUBDEV 0
+#endif
+#if P2M_RUMBLE_SUBDEV
+#if P2M_SUBPERIPH_RUMBLE == P2M_SUBPERIPH_PULSAR
+#error "slot 2 is the Pulsar's card; move one of them before enabling the Puru Puru"
+#endif
 static bool rumble_present(void *ctx) { (void)ctx; return false; }
 
 static int rumble_handle(void *ctx, const maple_req_t *rq, maple_frame_t *out)
@@ -147,14 +155,17 @@ static int rumble_handle(void *ctx, const maple_req_t *rq, maple_frame_t *out)
     out->payload = 0;
     return MAPLE_SUBDEV_REPLY;
 }
+#endif
 
 const maple_subdev_t g_maple_subdevs[] = {
     { .slot_bit = P2M_SUBPERIPH_VMU, .func = MAPLE_FUNC_STORAGE | MAPLE_FUNC_LCD | MAPLE_FUNC_CLOCK,
       .devinfo = (const uint8_t *)&g_vmu_identity, .ctx = &s_vmu, .present = vmu_present, .handle = vmu_subdev_handle,
       .after = vmu_subdev_after, .tick = vmu_subdev_tick },
+#if P2M_RUMBLE_SUBDEV
     { .slot_bit = P2M_SUBPERIPH_RUMBLE, .func = MAPLE_FUNC_VIBRATION,
       .devinfo = NULL, .ctx = NULL, .present = rumble_present, .handle = rumble_handle },
-    // The Pulsar's docked VMU, slot 3: storage only, present while the link has it (pulsar_card.c).
+#endif
+    // The Pulsar's docked VMU, slot 2: storage only, present while the link has it (pulsar_card.c).
     { .slot_bit = P2M_SUBPERIPH_PULSAR, .func = MAPLE_FUNC_STORAGE,
       .devinfo = (const uint8_t *)&g_pulsar_card_identity.info, .ctx = NULL,
       .present = pulsar_card_present, .handle = pulsar_card_handle },

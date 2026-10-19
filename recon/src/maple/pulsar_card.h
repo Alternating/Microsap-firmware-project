@@ -1,4 +1,4 @@
-// pulsar_card.h — the VMU docked in a Pulsar, as a second, storage-only card in slot 3.
+// pulsar_card.h — the VMU docked in a Pulsar, as a second, storage-only card in slot 2.
 // ADR 002 (bridge repo): a card, not a mirror. The console reads and writes a 128 KiB RAM
 // image; the BLE link (pulsar_link.c) pulls it from the physical VMU at connect and pushes
 // committed blocks back. Two cores touch the image: core1 answers Maple from it, core0 fills
