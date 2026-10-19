@@ -93,6 +93,7 @@ void dc_reset_device_mode(void)               // 0x1000151c
 #include "maple_subdev.h"
 #include "maple_frames.h"
 #include "vmu.h"
+#include "pulsar_card.h"
 #include "control.h"     // rumble_start / rumble_set_block (drained on core0 by rumble_tick)
 
 extern uint8_t g_subperiph_mask;
@@ -116,6 +117,7 @@ void maple_subdevs_init(void)
     vmu_init(&s_vmu);
     vmu_load_bank(&s_vmu, 0, false);   // core1 loads the default bank; control_init re-picks later
     s_vmu_ready = true;
+    pulsar_card_init();                // before bt_init: core0 waits for g_core1_ready first
 }
 
 void maple_subdev_vmu_bank_cycle(bool forward)
@@ -149,6 +151,10 @@ const maple_subdev_t g_maple_subdevs[] = {
       .after = vmu_subdev_after, .tick = vmu_subdev_tick },
     { .slot_bit = P2M_SUBPERIPH_RUMBLE, .func = MAPLE_FUNC_VIBRATION,
       .devinfo = NULL, .ctx = NULL, .present = rumble_present, .handle = rumble_handle },
+    // The Pulsar's docked VMU, slot 3: storage only, present while the link has it (pulsar_card.c).
+    { .slot_bit = P2M_SUBPERIPH_PULSAR, .func = MAPLE_FUNC_STORAGE,
+      .devinfo = (const uint8_t *)&g_pulsar_card_identity.info, .ctx = NULL,
+      .present = pulsar_card_present, .handle = pulsar_card_handle },
 };
 const unsigned g_maple_subdev_count = sizeof g_maple_subdevs / sizeof g_maple_subdevs[0];
 

@@ -45,6 +45,7 @@ add_executable(pico2maple
     src/maple/vmu_backend.c
     src/maple/dc_mapping.c
     src/maple/maple_devices.c
+    src/maple/pulsar_card.c
     src/storage/sdcard.c
     src/storage/settings.c
     src/config/mapping.c
