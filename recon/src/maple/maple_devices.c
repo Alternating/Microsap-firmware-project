@@ -163,9 +163,10 @@ uint8_t maple_subdev_snapshot(void)
 
 const maple_subdev_t *maple_subdev_find(uint8_t dst)
 {
-    uint8_t bit = dst & 0x1f & g_subperiph_mask;
-    if (!bit) return NULL;
+    uint8_t bit = dst & 0x1f;
+    if (!bit || (bit & (bit - 1))) return NULL;   // one recipient: exactly one slot bit
+    if (!(bit & g_subperiph_mask)) return NULL;
     for (unsigned i = 0; i < g_maple_subdev_count; i++)
         if (g_maple_subdevs[i].slot_bit == bit) return &g_maple_subdevs[i];
-    return NULL;   // more than one bit: not a valid recipient
+    return NULL;
 }
