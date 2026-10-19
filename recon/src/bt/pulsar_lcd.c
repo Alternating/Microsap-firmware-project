@@ -41,8 +41,8 @@ void pulsar_lcd_init(void)
     s_lock = spin_lock_init(spin_lock_claim_unused(true));
 }
 
-// Their instance's lcd op: frames exactly as the console wrote them. The spec wants them
-// unrotated; the Pulsar turns them for the VMU sitting upside down in it.
+// Their instance's lcd op: frames exactly as the console wrote them; they are turned on the way
+// out (rotate_180).
 static void sink_lcd(void *ctx, const uint8_t fb[LCD_BYTES])
 {
     (void)ctx;
@@ -59,6 +59,22 @@ void pulsar_lcd_progress(unsigned done, unsigned total)
 {
     s_done = total ? done : 0;
     s_total = total;
+}
+
+static uint8_t rev8(uint8_t b)
+{
+    b = (uint8_t)((b & 0xf0) >> 4 | (b & 0x0f) << 4);
+    b = (uint8_t)((b & 0xcc) >> 2 | (b & 0x33) << 2);
+    return (uint8_t)((b & 0xaa) >> 1 | (b & 0x55) << 1);
+}
+
+// The console writes VMU art turned 180 degrees, for a VMU that sits upside down in a controller,
+// and the Pulsar turns what it receives for its own docked VMU: sent untouched, a game's art
+// arrives inverted (bench, 2026-10-19, as the bridge found 2026-09-10). Our own screens are drawn
+// as viewed and go as drawn.
+static void rotate_180(uint8_t *dst, const uint8_t *src)
+{
+    for (unsigned i = 0; i < LCD_BYTES; i++) dst[i] = rev8(src[LCD_BYTES - 1 - i]);
 }
 
 // Choose the next frame into s_frame. False when nothing needs to go.
@@ -85,7 +101,7 @@ static bool next_frame(void)
         pulsar_screen_loading(s_frame, s_done, s_total);
         s_ours = true;
     } else if (s_have_art) {
-        memcpy(s_frame, s_art, LCD_BYTES);
+        rotate_180(s_frame, s_art);
         s_ours = false;
     } else if (s_ours) {
         // The pull ended and the console has drawn nothing (the BIOS, a game without VMU art).
