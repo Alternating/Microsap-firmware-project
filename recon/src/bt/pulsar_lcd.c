@@ -65,14 +65,15 @@ void pulsar_lcd_progress(unsigned done, unsigned total)
 static bool next_frame(void)
 {
     // Taken even while the loading screen has the Pulsar, so s_art is the newest when it ends.
+    // Tested under the lock too: core1 sets the flag under it, and only the lock orders the two.
+    uint32_t irq = spin_lock_blocking(s_lock);
     if (s_full) {
-        uint32_t irq = spin_lock_blocking(s_lock);
         memcpy(s_art, s_box, LCD_BYTES);
         s_full = false;
-        spin_unlock(s_lock, irq);
         s_have_art = true;
         s_pending = true;
     }
+    spin_unlock(s_lock, irq);
     // Redraw per block: the count moves even when the bar's next pixel has not.
     if (s_done != s_shown_done || s_total != s_shown_total) {
         s_shown_done = s_done;
