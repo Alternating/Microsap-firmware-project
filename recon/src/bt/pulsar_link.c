@@ -30,6 +30,8 @@ static const uint8_t PULSAR_SVC_UUID[16] = {
 #define PULSAR_OP_STATUS_REQ 0x03   // down: [03]
 #define PULSAR_OP_STATUS     0x83   // up: [83, proto, flags, queue_free, epoch u32 LE, card u32 LE]
 #define PULSAR_STATUS_LEN    12
+#define PULSAR_WRITE_RETRY_MS 5     // STATUS? retry period while GATT_CLIENT_BUSY
+#define PULSAR_WRITE_TRIES    200   // ~1 s of busy before it counts as a failure
 #define PULSAR_STORAGE_MTU   135    // 132-byte DATA/WRITE + ATT header; the spec says do not use
                                     // the storage protocol below it, and STATUS is part of it
 
@@ -38,7 +40,7 @@ typedef enum {
     PL_W4_SERVICE,      // primary service discovery by UUID queued/running
     PL_W4_CHARS,        // characteristic discovery queued/running
     PL_W4_CCC,          // CCC write (subscribe to storage-up) queued/running
-    PL_W4_WRITE,        // waiting for a write-without-response grant for STATUS?
+    PL_W4_WRITE,        // STATUS? not yet sent: the ACL buffers were full, retry timer armed
     PL_READY,           // STATUS? sent; notifications flow
     PL_NOT_PULSAR,      // BLE pad without the service; left alone until it disconnects
     PL_FAILED,          // see fail_where/fail_code
@@ -53,7 +55,8 @@ typedef struct {
     gatt_client_notification_t listener;
     bool listening;
     btstack_context_callback_registration_t query;
-    btstack_context_callback_registration_t write_req;
+    btstack_timer_source_t write_retry;             // STATUS? retry while the ACL buffers are full
+    uint16_t write_tries;
     uint16_t mtu;
     const char *fail_where;                         // string literal
     uint8_t fail_code;
@@ -129,15 +132,23 @@ static void notify_handler(uint8_t packet_type, uint16_t channel, uint8_t *packe
     }
 }
 
-// Granted a write-without-response slot (queued API, shared fairly with hids_host's output
-// reports). No remote acknowledgement exists, but the local call returns errors: check them.
-static void send_status_request(void *context)
+// STATUS? is one write without response. It goes out directly and, while the ACL buffers are
+// full, is retried on a BTstack timer. Not through gatt_client_request_to_write_without_response:
+// BTstack has no call to take a registration back off that queue, so a Bluepad32 disconnect that
+// arrives before HCI's would leave BTstack holding a callback into a slot we have zeroed. A timer
+// can be removed. No remote acknowledgement exists, but the local call returns errors: check them.
+static void send_status_request(btstack_timer_source_t *ts)
 {
-    pl_link_t *l = context;
+    pl_link_t *l = btstack_run_loop_get_timer_context(ts);
     if (l->state != PL_W4_WRITE) return;
     uint8_t op = PULSAR_OP_STATUS_REQ;
     uint8_t st = gatt_client_write_value_of_characteristic_without_response(
         l->con, l->chr_down.value_handle, 1, &op);
+    if (st == GATT_CLIENT_BUSY && ++l->write_tries < PULSAR_WRITE_TRIES) {
+        btstack_run_loop_set_timer(&l->write_retry, PULSAR_WRITE_RETRY_MS);
+        btstack_run_loop_add_timer(&l->write_retry);
+        return;
+    }
     if (st != ERROR_CODE_SUCCESS) { fail(l, "status-write", st); return; }
     l->state = PL_READY;
     printf("[pulsar] 0x%04x STATUS? sent on 0x%04x\n", l->con, l->chr_down.value_handle);
@@ -145,11 +156,11 @@ static void send_status_request(void *context)
 
 static void request_status_write(pl_link_t *l)
 {
-    l->state = PL_W4_WRITE;   // before the request: the grant can fire inside it
-    l->write_req.callback = send_status_request;
-    l->write_req.context = l;
-    uint8_t st = gatt_client_request_to_write_without_response(&l->write_req, l->con);
-    if (st != ERROR_CODE_SUCCESS) fail(l, "write-request", st);
+    l->state = PL_W4_WRITE;
+    l->write_tries = 0;
+    btstack_run_loop_set_timer_handler(&l->write_retry, send_status_request);
+    btstack_run_loop_set_timer_context(&l->write_retry, l);
+    send_status_request(&l->write_retry);
 }
 
 static void gatt_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
@@ -289,6 +300,7 @@ void pulsar_link_detach(uni_hid_device_t *d)
     if (!l) return;
     if (l->listening) gatt_client_stop_listening_for_characteristic_value_updates(&l->listener);
     (void)gatt_client_remove_gatt_query(&l->query, l->con);   // no-op if not queued
+    btstack_run_loop_remove_timer(&l->write_retry);            // no-op if not armed
     printf("[pulsar] detach: handle 0x%04x (state %d, %lu STATUS, %lu other)\n",
            l->con, l->state, (unsigned long)l->status_count, (unsigned long)l->other_count);
     memset(l, 0, sizeof *l);
@@ -302,6 +314,7 @@ const char *pulsar_link_heartbeat(void)
     pl_link_t snap;
     int rank_best = 0;                 // 1 not-pulsar, 2 failed, 3 discovering, 4 ready
     async_context_t *ctx = cyw43_arch_async_context();
+    if (!ctx) return "none";           // cyw43 init failed: bt_init returned, nothing attaches
     async_context_acquire_lock_blocking(ctx);
     for (int i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES; i++) {
         int rank;
