@@ -6,6 +6,7 @@
 #include "uni.h"
 #include "pico/time.h"   // time_us_64: implicit under GCC 13 truncated the u64 to int, an error under GCC 15
 #include "bp32_platform.h"
+#include "pulsar_link.h"
 
 #ifndef CONFIG_BLUEPAD32_MAX_DEVICES
 #define CONFIG_BLUEPAD32_MAX_DEVICES 4
@@ -85,12 +86,14 @@ static void p2m_on_device_connected(uni_hid_device_t *d) { s_active = d; }
 
 static void p2m_on_device_disconnected(uni_hid_device_t *d)
 {
+    pulsar_link_detach(d);
     if (d == s_active) { s_active = NULL; s_connected = false; gp_neutral(&s_gamepad); }
 }
 
 static uni_error_t p2m_on_device_ready(uni_hid_device_t *d)
 {
     s_active = d; s_connected = true;
+    pulsar_link_attach(d);    // BLE only; discovery decides whether it is a Pulsar
     return UNI_ERROR_SUCCESS;
 }
 
