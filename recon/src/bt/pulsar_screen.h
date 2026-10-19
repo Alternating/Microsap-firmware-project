@@ -2,7 +2,7 @@
 // link pulls the card (story 025). The same screens the bridge and pulsar-link show, so a player
 // sees one design whichever host they use: "NOT READY", "READING CARD", a bar and a block count,
 // then "READY". Frames are 48x32, 1 bpp, rows of 6 bytes, leftmost pixel in the high bit, drawn
-// the right way up as viewed; pulsar_lcd.c turns them to the console's orientation to send.
+// the right way up as viewed: they never cross the Maple wire, so nothing has rotated them.
 // No BTstack here, so the desktop test can draw them.
 #ifndef P2M_PULSAR_SCREEN_H
 #define P2M_PULSAR_SCREEN_H
