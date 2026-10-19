@@ -7,12 +7,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-// {header word, body pointer} pair handed to the Maple TX path for DEVICE_STATUS replies.
-typedef struct {
-    uint32_t header;
-    uint8_t *body;
-} vmu_devinfo_ref_t;
-
 // SD write request queued from core1 to core0 (element size 0x1014). from 0x1000278c
 typedef struct __attribute__((packed)) {
     uint8_t  op;            // 1 = write page  // TODO(verify @0x1000278c op byte)
@@ -57,20 +51,71 @@ _Static_assert(offsetof(vmu_state_t, mediainfo_tmpl)==0x203c9, "mediainfo_tmpl")
 _Static_assert(offsetof(vmu_state_t, media_resp)   == 0x20419, "media_resp");
 _Static_assert(offsetof(vmu_state_t, storage_mode) == 0x2043d, "storage_mode");
 
-void vmu_build_device_info(vmu_devinfo_ref_t *ref, uint8_t *body);              // 0x10000824
+// ---- Seams ---------------------------------------------------------------------
+// The VMU engine (vmu.c) owns the Maple-facing state; where the image lives and what shows the
+// LCD are behind these two ops tables. Their instance is store{internal flash, SD} +
+// display{OLED} (vmu_backend.c). Ops run on core1, mostly inside the Maple reply budget: none
+// may call into BLE or FatFs synchronously. Hand the work off (a queue to core0) instead.
+
+typedef struct {
+    // v->storage_mode for this store at init (0 = internal, 1 = SD in their store).
+    uint8_t (*mode)(void *ctx);
+    // Fill v->image for v->bank. 0 ok, 0xfe file error, 0xff unknown storage mode.
+    int  (*load)(void *ctx, vmu_state_t *v);
+    // Leave a blank formatted image for v->bank in v->image (persisting it if the medium
+    // does). 0 ok, 0xfe file error.
+    int  (*format)(void *ctx, vmu_state_t *v);
+    // Persist 4 KiB page `page` of v->image. false = not handled; the page stays dirty.
+    bool (*flush_page)(void *ctx, vmu_state_t *v, unsigned page);
+    // Once at init, after the first bank is loaded; may be NULL.
+    void (*opened)(void *ctx, vmu_state_t *v);
+    void *ctx;
+} vmu_store_t;
+
+// A display sink. Any op may be NULL: a sink that only mirrors the screen sets lcd alone, and
+// gets frames only, never the bank and storage indicators.
+typedef struct {
+    void (*lcd)(void *ctx, const uint8_t fb[0xC0]);   // a new 48x32 1bpp frame, rows MSB-first
+    void (*bank)(void *ctx, unsigned bank);           // 0..9, 10 = GameID bank
+    void (*storage)(void *ctx, bool internal);        // medium indicator
+    void (*sd_icon)(void *ctx, bool on);              // write/flush indicator (oled_draw_sd_icon)
+    void (*refresh)(void *ctx);                       // present the indicators drawn so far
+    void *ctx;
+} vmu_display_t;
+
+#define VMU_MAX_SINKS 2
+
+// One VMU: the binary-exact state, aligned (vmu.c word-accesses its u32 fields and a packed
+// type alone has alignment 1), plus the seams. No pointer goes into the packed layout.
+typedef struct {
+    vmu_state_t st __attribute__((aligned(4)));
+    const vmu_store_t *store;
+    const vmu_display_t *sinks[VMU_MAX_SINKS];
+} vmu_t;
+
 void vmu_media_info_build(vmu_state_t *v);                                      // 0x10002250
-int  vmu_load_bank_image(vmu_state_t *v, unsigned bank);                        // 0x10002354
-void vmu_format_bank(vmu_state_t *v);                                           // 0x100022d0
-int  vmu_init(vmu_state_t *v);                                                  // 0x10002568
+int  vmu_load_bank_image(vmu_t *u, unsigned bank);                              // 0x10002354
+int  vmu_init(vmu_t *u);                                                        // 0x10002568
 int  vmu_block_read(vmu_state_t *v, uint32_t spec);                             // 0x10002748
-int  vmu_flush_dirty(vmu_state_t *v);                                           // 0x1000278c
-int  vmu_block_write(vmu_state_t *v, uint32_t spec, const uint32_t *src, int words); // 0x100028a4
+int  vmu_flush_dirty(vmu_t *u);                                                 // 0x1000278c
+int  vmu_block_write(vmu_t *u, uint32_t spec, const uint32_t *src, int words);  // 0x100028a4
 int  vmu_lcd_write(vmu_state_t *v, uint32_t spec, const uint32_t *src, int words);   // 0x1000290c
-int  vmu_lcd_render_notify(vmu_state_t *v);                                     // 0x100028f4
-int  vmu_load_bank(vmu_state_t *v, unsigned bank, bool notify);                 // 0x10002948
-int  vmu_load_gameid_bank(vmu_state_t *v, bool notify);                         // 0x10002aa0
-void vmu_bank_cycle(vmu_state_t *v, bool forward);                              // 0x10002ac4
+int  vmu_lcd_render_notify(vmu_t *u);                                           // 0x100028f4
+int  vmu_load_bank(vmu_t *u, unsigned bank, bool notify);                       // 0x10002948
+int  vmu_load_gameid_bank(vmu_t *u, bool notify);                               // 0x10002aa0
+void vmu_bank_cycle(vmu_t *u, bool forward);                                    // 0x10002ac4
 int  vmu_gameid_store(vmu_state_t *v, const uint32_t *w, unsigned len_words);   // 0x10002b44
 int  vmu_set_condition(vmu_state_t *v, const uint32_t *frame);                  // 0x10002bbc
+
+// Slot 1 on the Maple sub-device table (maple_subdev.h); ctx is the vmu_t.
+#include "maple_subdev.h"
+extern const maple_devinfo_t g_vmu_identity;         // what slot 1 says it is
+int  vmu_subdev_handle(void *ctx, const maple_req_t *rq, maple_frame_t *out);
+void vmu_subdev_after(void *ctx);                    // GAMEID: load the per-game bank after the ack
+void vmu_subdev_tick(void *ctx, uint32_t idle_frames); // flush one dirty page once the bus is idle
+
+// Their VMU's store and display (vmu_backend.c).
+extern const vmu_store_t g_vmu_store_flash_sd;
+extern const vmu_display_t g_vmu_display_oled;
 
 #endif
