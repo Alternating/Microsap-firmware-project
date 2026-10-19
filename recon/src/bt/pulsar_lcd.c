@@ -124,7 +124,6 @@ void pulsar_lcd_service(uint16_t con, uint16_t value_handle, uint16_t mtu)
         if (now - s_last_ms < LCD_MIN_GAP_MS || !next_frame()) return;
         s_whole = mtu >= LCD_WHOLE_MTU;
         s_next = 0;
-        s_last_ms = now;
     }
     while (s_next >= 0) {
         uint8_t chunk[1 + LCD_CHUNK];
@@ -141,7 +140,13 @@ void pulsar_lcd_service(uint16_t con, uint16_t value_handle, uint16_t mtu)
         // Any other failure drops the frame but not the change: the end of a pull or the art's
         // return may be the last change for minutes, with nothing new coming to retry with.
         if (st != ERROR_CODE_SUCCESS) { s_next = -1; s_pending = true; return; }
-        if (s_whole || ++s_next == 4) { s_next = -1; g_pulsar_lcd_sent++; }
+        // The gap runs from a frame's last write: one held up by BUSY must not let the next
+        // follow it at once.
+        if (s_whole || ++s_next == 4) {
+            s_next = -1;
+            s_last_ms = btstack_run_loop_get_time_ms();
+            g_pulsar_lcd_sent++;
+        }
     }
 }
 
