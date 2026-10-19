@@ -61,6 +61,26 @@ void pulsar_lcd_progress(unsigned done, unsigned total)
     s_total = total;
 }
 
+// Our screens are drawn as viewed; the console writes its art turned 180 degrees for a VMU that
+// sits upside down in a controller, and the Pulsar turns what it receives to match. Sent as
+// drawn, ours would arrive inverted (bench, 2026-10-19: the console's frames, sent untouched,
+// are upright), so they take the console's orientation first.
+static uint8_t rev8(uint8_t b)
+{
+    b = (uint8_t)((b & 0xf0) >> 4 | (b & 0x0f) << 4);
+    b = (uint8_t)((b & 0xcc) >> 2 | (b & 0x33) << 2);
+    return (uint8_t)((b & 0xaa) >> 1 | (b & 0x55) << 1);
+}
+
+static void to_console_orientation(uint8_t f[LCD_BYTES])
+{
+    for (unsigned i = 0; i < LCD_BYTES / 2; i++) {
+        uint8_t a = f[i], b = f[LCD_BYTES - 1 - i];
+        f[i] = rev8(b);
+        f[LCD_BYTES - 1 - i] = rev8(a);
+    }
+}
+
 // Choose the next frame into s_frame. False when nothing needs to go.
 static bool next_frame(void)
 {
@@ -82,6 +102,7 @@ static bool next_frame(void)
     if (!s_pending) return false;
     if (s_total) {
         pulsar_screen_loading(s_frame, s_done, s_total);
+        to_console_orientation(s_frame);
         s_ours = true;
     } else if (s_have_art) {
         memcpy(s_frame, s_art, LCD_BYTES);
@@ -90,8 +111,12 @@ static bool next_frame(void)
         // The pull ended and the console has drawn nothing (the BIOS, a game without VMU art).
         // The Pulsar holds a host's screen until the link drops, so the bar must be replaced:
         // READY if the card came up, blank if the pull failed. The first console frame takes it.
-        if (pulsar_card_present(NULL)) pulsar_screen_message(s_frame, "READY");
-        else memset(s_frame, 0, LCD_BYTES);
+        if (pulsar_card_present(NULL)) {
+            pulsar_screen_message(s_frame, "READY");
+            to_console_orientation(s_frame);
+        } else {
+            memset(s_frame, 0, LCD_BYTES);
+        }
     } else {
         s_pending = false;          // nothing of ours up and no art: the Pulsar's own screen stays
         return false;
