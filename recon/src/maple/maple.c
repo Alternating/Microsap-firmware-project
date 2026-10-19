@@ -48,6 +48,7 @@ volatile uint32_t g_maple_frames, g_maple_dev_req, g_maple_get_cond;
 volatile uint32_t g_maple_rx_words, g_maple_rx_resync;
 volatile uint32_t g_maple_cond_sent;   // controller condition replies actually transmitted
 volatile uint32_t g_maple_devreq_sent;  // DEVICE_STATUS replies actually transmitted
+volatile uint32_t g_maple_last_miss;    // latest unanswered GET_CONDITION: (func << 8) | dst
 // @0x20001668: attached sub-peripheral mask (P2M_SUBPERIPH_*); also patches sender AP on TX
 uint8_t g_subperiph_mask;
 // @0x2000e970: RX frame buffer (0x400 bytes: len,src,dst,cmd + payload + xor)
@@ -505,8 +506,11 @@ void maple_core1_main(void)
         // (c) layout switched? → rebuild controller device-info after a short delay
         extern volatile int16_t g_active_layout, g_devinfo_rebuild;
         if (g_devinfo_rebuild) {
-            // delayed by DAT_10001bc4 µs then:
-            maple_build_device_info_blocks(NULL, g_devinfo_payload, g_devinfo_rebuild);
+            // g_devinfo_rebuild is only a "rebuild needed" signal (it carries the layout id).
+            // The builder's func argument must be a Maple function code; it reads the active
+            // layout internally. Passing the layout here produced a function-less device info,
+            // so any re-enumeration after boot (console power cycle, reconnect) ignored us.
+            maple_build_device_info_blocks(NULL, g_devinfo_payload, MAPLE_FUNC_CONTROLLER);
             g_devinfo_rebuild = 0;
         }
 
@@ -580,6 +584,7 @@ void maple_core1_main(void)
                 g_maple_cond_sent++;
             } else {
 cond_miss:;
+                g_maple_last_miss = ((uint32_t)func << 8) | dst;
                 // Unanswered GET_CONDITION — one-shot dump of what the console wanted, so a
                 // recv/sent gap in the heartbeat can be attributed to a specific function.
                 static uint8_t miss_logged;
