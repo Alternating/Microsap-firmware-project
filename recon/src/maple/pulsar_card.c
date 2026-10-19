@@ -121,12 +121,17 @@ int pulsar_card_handle(void *ctx, const maple_req_t *rq, maple_frame_t *out)
         out->header = MAPLE_HDR_ACK_SUB;
         return MAPLE_SUBDEV_REPLY;
 
-    case MAPLE_CMD_GET_MEDIA_INFO:
+    case MAPLE_CMD_GET_MEDIA_INFO: {
         if (!storage) break;
-        vmu_media_info_build(&s_card);
-        out->header = MAPLE_HDR_DATA_MEDIA_INFO;
-        out->payload = s_card.media_resp;
+        // Built from the root block, which a pull clears and refills: under the lock, as reads are.
+        bool ok;
+        uint32_t irq = lock();
+        if ((ok = s_present)) vmu_media_info_build(&s_card);
+        unlock(irq);
+        out->header = ok ? MAPLE_HDR_DATA_MEDIA_INFO : MAPLE_HDR_ERR_SUB;
+        out->payload = ok ? s_card.media_resp : 0;
         return MAPLE_SUBDEV_REPLY;
+    }
 
     case MAPLE_CMD_BLOCK_READ: {
         if (!storage) break;
