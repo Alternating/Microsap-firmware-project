@@ -328,6 +328,15 @@ static void pull_service(pl_link_t *l, uint32_t now)
     s_store.read_ms = now;
 }
 
+// A (blk, seq) the Pulsar may still hold must not be reused: it would take the new bytes for a
+// retry of the old ones, ACK them and write nothing.
+static bool seq_outstanding(uint8_t blk, uint8_t seq)
+{
+    for (unsigned k = 0; k < s_store.nflight; k++)
+        if (s_store.flight[k].blk == blk && s_store.flight[k].seq == seq) return true;
+    return false;
+}
+
 // A block goes out whole: snapshotted under the card's lock by pulsar_card_take, then four
 // phases from that copy. A console write to it meanwhile marks it pending again.
 static void push_service(pl_link_t *l, uint32_t now)
@@ -338,7 +347,7 @@ static void push_service(pl_link_t *l, uint32_t now)
         if (b < 0) return;
         s_store.sending = true;
         s_store.blk = (uint8_t)b;
-        s_store.seq = s_store.next_seq++;
+        do s_store.seq = s_store.next_seq++; while (seq_outstanding(s_store.blk, s_store.seq));
         s_store.phase = 0;
     }
     if (s_store.phase == 4) {
