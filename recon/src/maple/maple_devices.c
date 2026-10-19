@@ -102,11 +102,12 @@ extern uint8_t g_subperiph_mask;
 // into .data, a flash copy of it made at every boot.
 static vmu_t s_vmu;
 static bool s_vmu_ready;
-// TODO(vmu): the console rejected the VMU when it was last advertised (b09fd43); slot 1 stays
-// off until its device info and state are fixed.
-static const bool s_vmu_advertise = false;
 
-static bool vmu_present(void *ctx) { (void)ctx; return s_vmu_ready && s_vmu_advertise; }
+// Advertised again. When b09fd43 turned it off, the console looped re-enumerating the port.
+// The device info was already right (it matches the bridge's byte for byte). The state was
+// not: its buffer was 894 bytes short of vmu_state_t, so the block-read reply, the dirty mask
+// and the bank lived past it, over whatever .bss came next. That is the likeliest cause.
+static bool vmu_present(void *ctx) { (void)ctx; return s_vmu_ready; }
 
 void maple_subdevs_init(void)
 {
@@ -144,7 +145,7 @@ static int rumble_handle(void *ctx, const maple_req_t *rq, maple_frame_t *out)
 
 const maple_subdev_t g_maple_subdevs[] = {
     { .slot_bit = P2M_SUBPERIPH_VMU, .func = MAPLE_FUNC_STORAGE | MAPLE_FUNC_LCD | MAPLE_FUNC_CLOCK,
-      .devinfo = NULL, .ctx = &s_vmu, .present = vmu_present, .handle = vmu_subdev_handle,
+      .devinfo = (const uint8_t *)&g_vmu_identity, .ctx = &s_vmu, .present = vmu_present, .handle = vmu_subdev_handle,
       .after = vmu_subdev_after, .tick = vmu_subdev_tick },
     { .slot_bit = P2M_SUBPERIPH_RUMBLE, .func = MAPLE_FUNC_VIBRATION,
       .devinfo = NULL, .ctx = NULL, .present = rumble_present, .handle = rumble_handle },

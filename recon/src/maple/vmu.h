@@ -7,12 +7,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-// {header word, body pointer} pair handed to the Maple TX path for DEVICE_STATUS replies.
-typedef struct {
-    uint32_t header;
-    uint8_t *body;
-} vmu_devinfo_ref_t;
-
 // SD write request queued from core1 to core0 (element size 0x1014). from 0x1000278c
 typedef struct __attribute__((packed)) {
     uint8_t  op;            // 1 = write page  // TODO(verify @0x1000278c op byte)
@@ -99,7 +93,6 @@ typedef struct {
     const vmu_display_t *sinks[VMU_MAX_SINKS];
 } vmu_t;
 
-void vmu_build_device_info(vmu_devinfo_ref_t *ref, uint8_t *body);              // 0x10000824
 void vmu_media_info_build(vmu_state_t *v);                                      // 0x10002250
 int  vmu_load_bank_image(vmu_t *u, unsigned bank);                              // 0x10002354
 int  vmu_init(vmu_t *u);                                                        // 0x10002568
@@ -116,6 +109,7 @@ int  vmu_set_condition(vmu_state_t *v, const uint32_t *frame);                  
 
 // Slot 1 on the Maple sub-device table (maple_subdev.h); ctx is the vmu_t.
 #include "maple_subdev.h"
+extern const maple_devinfo_t g_vmu_identity;         // what slot 1 says it is
 int  vmu_subdev_handle(void *ctx, const maple_req_t *rq, maple_frame_t *out);
 void vmu_subdev_after(void *ctx);                    // GAMEID: load the per-game bank after the ack
 void vmu_subdev_tick(void *ctx, uint32_t idle_frames); // flush one dirty page once the bus is idle

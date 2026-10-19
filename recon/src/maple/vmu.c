@@ -19,34 +19,23 @@
         }                                                                      \
     } while (0)
 
-static const char devinfo_name[30 + 1]    = "Visual Memory                 ";
-static const char devinfo_license[60 + 1] =
-    "Produced By or Under License From SEGA ENTERPRISES,LTD.     ";
+// Slot 1's device info: the one identity it advertises, and what bank loads re-store into
+// v->devinfo_body. The original built it twice (0x10000824 for the reply, 0x10002568 into the
+// state). Byte for byte the console-proven VMU identity of the bridge firmware.
+const maple_devinfo_t g_vmu_identity = {
+    .func      = { 0x00, 0x00, 0x00, 0x0e },          // storage | LCD | clock
+    .fdata     = { { 0x7e, 0x7e, 0x3f, 0x40 },        // clock
+                   { 0x00, 0x05, 0x10, 0x00 },        // LCD: 48x32, 6 x 32-byte blocks
+                   { 0x00, 0x0f, 0x41, 0x00 } },      // storage: 512 B blocks, 4 writes, 1 read
+    .region    = 0xff,
+    .direction = 0x00,
+    .name      = "Visual Memory                 ",
+    .license   = "Produced By or Under License From SEGA ENTERPRISES,LTD.     ",
+    .standby   = { 0x7c, 0x00 },                      // 12.4 mA
+    .max_power = { 0x82, 0x00 },                      // 13.0 mA
+};
 
-// Shared body filler for the 112-byte device-info payload. from 0x10000824 / 0x10002568
-static void fill_devinfo_body(uint8_t *body)
-{
-    memset(body, 0, 112);
-    body[3]  = 0x0e;                     // functions: storage|LCD|clock (BE u32 0x0E000000)
-    body[4]  = 0x7e; body[5] = 0x7e;     // storage fdata 0x403f7e7e
-    body[6]  = 0x3f; body[7] = 0x40;
-    body[9]  = 0x05; body[10] = 0x10;    // LCD fdata 0x00100500
-    body[13] = 0x0f; body[14] = 0x41;    // clock fdata 0x00410f00
-    body[16] = 0xff;                     // area code
-    body[17] = 0x00;                     // connector direction
-    memcpy(body + 0x12, devinfo_name, 30);
-    memcpy(body + 0x30, devinfo_license, 60);
-    uint32_t power = 0x0082007c;         // standby 12.4mA, max 13.0mA
-    memcpy(body + 0x6c, &power, 4);
-}
-
-// from 0x10000824
-void vmu_build_device_info(vmu_devinfo_ref_t *ref, uint8_t *body)
-{
-    fill_devinfo_body(body);
-    ref->header = 0;                     // header word filled by caller // TODO(verify @0x10000824 DAT_100008ec)
-    ref->body = body;
-}
+static void fill_devinfo_body(uint8_t *body) { memcpy(body, &g_vmu_identity, sizeof g_vmu_identity); }
 
 // from 0x10002250
 void vmu_media_info_build(vmu_state_t *v)
@@ -275,7 +264,7 @@ int vmu_subdev_handle(void *ctx, const maple_req_t *rq, maple_frame_t *out)
     switch (rq->cmd) {
     case MAPLE_CMD_DEVICE_REQUEST:
         out->header = MAPLE_HDR_DEVICE_STATUS_VMU;          // DAT_100008ec: 0x0500011c
-        out->payload = v->devinfo_body;
+        out->payload = (const uint8_t *)&g_vmu_identity;
         return MAPLE_SUBDEV_REPLY;
 
     case MAPLE_CMD_ALL_STATUS_REQ:

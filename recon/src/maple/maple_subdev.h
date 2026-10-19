@@ -9,6 +9,20 @@
 #include <stdint.h>
 #include "maple.h"
 
+// The 112-byte DEVICE_STATUS body, laid out as the console reads it back: each word stored
+// big-endian (the TX path reverses every payload word), the two currents little-endian.
+typedef struct __attribute__((packed)) {
+    uint8_t func[4];          // MAPLE_FUNC_* OR'd, big-endian
+    uint8_t fdata[3][4];      // function data, highest function code first
+    uint8_t region;           // 0xff = all regions
+    uint8_t direction;        // connector direction
+    char    name[30];         // space padded, no NUL
+    char    license[60];      // space padded, no NUL
+    uint8_t standby[2];       // tenths of a mA, little-endian
+    uint8_t max_power[2];
+} maple_devinfo_t;
+_Static_assert(sizeof(maple_devinfo_t) == 112, "device info is 28 words");
+
 // One received frame, as the handler sees it.
 typedef struct {
     const uint8_t *frame;   // [len][src][dst][cmd] + len words of payload (host order)
