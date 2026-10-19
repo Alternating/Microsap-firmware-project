@@ -65,6 +65,7 @@ typedef enum {
 typedef struct {
     pl_state_t state;
     hci_con_handle_t con;
+    bd_addr_t addr;                                 // the peer, which the card's session is bound to
     gatt_client_service_t svc;
     gatt_client_characteristic_t chr_lcd, chr_up, chr_down;
     uint8_t have;                                   // HAVE_SVC | 1 << PULSAR_CHR_*
@@ -90,9 +91,10 @@ static pl_link_t s_links[CONFIG_BLUEPAD32_MAX_DEVICES];
 typedef struct {
     pl_link_t *owner;
     btstack_timer_source_t tick;
-    // The generation the image and the queue belong to: the STATUS epoch, and the card's
-    // fingerprint once the Pulsar knows it (0 until it has read blocks 255 and 254).
+    // The generation the image and the queue belong to: the Pulsar it came from and its STATUS
+    // epoch. card is the fingerprint last reported, for the log only.
     bool sess, pulled;
+    bd_addr_t peer;
     uint32_t epoch, card;
     // Pull: blocks to READ in order, one outstanding.
     bool pulling, read_out;
@@ -141,11 +143,13 @@ static bool is_pulsar_chr(const gatt_client_characteristic_t *c, uint8_t which)
 }
 
 // ---- The store: the card's pull and push -----------------------------------------
-// Session rule, decided before the pull: a STATUS whose epoch and card match the session's keeps
+// Session rule, decided before the pull: a STATUS from the same Pulsar with the same epoch keeps
 // the image and the pending queue (a reconnect while the Pulsar was still draining); anything
-// else means a different card, or the same one after something the Pulsar could not vouch for,
-// and discards both before a fresh pull. card reads 0 until the Pulsar has read 255 and 254 in
-// this generation, so 0 matches anything and the first non-zero value is adopted.
+// else discards both before a fresh pull. The epoch moves on every dock, undock, link loss, power
+// loss and failed write (host_integration.md, "Generations"), so within one Pulsar it alone says
+// "same card". Not the fingerprint: it hashes blocks 255 and 254, so our own FAT and root writes
+// move it every save, and the Pulsar announces that before their WRITTEN. Epochs are per device,
+// hence the peer address.
 
 static uint8_t store_write(pl_link_t *l, const uint8_t *v, uint16_t len)
 {
@@ -220,10 +224,9 @@ static void store_on_status(pl_link_t *l)
         s_store.sess = s_store.pulling = s_store.pulled = false;
         return;
     }
-    bool same = s_store.sess && l->epoch == s_store.epoch &&
-                (!s_store.card || !l->card || l->card == s_store.card);
+    bool same = s_store.sess && l->epoch == s_store.epoch && bd_addr_cmp(l->addr, s_store.peer) == 0;
+    s_store.card = l->card;
     if (same) {
-        if (!s_store.card && l->card) s_store.card = l->card;
         if (s_store.pulled) pulsar_card_set_present(true);  // reconnect: image and queue stand
         else if (!s_store.pulling) pull_start();            // the last pull did not finish
         return;
@@ -231,7 +234,7 @@ static void store_on_status(pl_link_t *l)
     if (s_store.sess) printf("[pulsar] card: new generation, %u pending dropped\n", pulsar_card_pending());
     s_store.sess = true;
     s_store.epoch = l->epoch;
-    s_store.card = l->card;
+    bd_addr_copy(s_store.peer, l->addr);
     pull_start();
 }
 
@@ -575,6 +578,7 @@ void pulsar_link_attach(uni_hid_device_t *d)
     if (!l) { printf("[pulsar] no free link slot for 0x%04x\n", d->conn.handle); return; }
     memset(l, 0, sizeof *l);
     l->con = d->conn.handle;
+    bd_addr_copy(l->addr, d->conn.btaddr);
     l->state = PL_W4_SERVICE;
     printf("[pulsar] attach: handle 0x%04x vid=%04x pid=%04x, discovering HostService\n",
            l->con, d->vendor_id, d->product_id);
