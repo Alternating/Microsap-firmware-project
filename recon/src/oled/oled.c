@@ -176,13 +176,18 @@ void oled_service(void)
 // from 0x10002ef4 — upscale the 48x32 1bpp VMU LCD into the framebuffer's main area.
 // Functional reconstruction: the original is a dense bit-packing loop. The VMU LCD is 48x32,
 // 6 bytes/row (MSB = leftmost pixel). Here each VMU pixel is written as an SSD1306 page bit.
-// TODO(verify @0x10002ef4): exact scale factor, orientation and target offset against hardware.
+// The console writes VMU art already turned 180°, because a VMU sits upside down in the
+// controller; the framebuffer here is upright (the panel's own flip is oled_init's), so the
+// frame is read turned back: pixel (row, col) comes from (31 - row, 47 - col). Bench, 2026-10-19:
+// without it the game's art showed upside down.
+// TODO(verify @0x10002ef4): exact scale factor and target offset against hardware.
 void vmu_lcd_upscale(const uint8_t *lcd_fb)
 {
     if (!g_oled_fb) return;
     for (int row = 0; row < 32; row++) {
         for (int col = 0; col < 48; col++) {
-            int bit = (lcd_fb[row * 6 + (col >> 3)] >> (7 - (col & 7))) & 1;
+            int sr = 31 - row, sc = 47 - col;
+            int bit = (lcd_fb[sr * 6 + (sc >> 3)] >> (7 - (sc & 7))) & 1;
             unsigned page = (unsigned)row >> 3;          // 32 rows -> 4 pages
             unsigned x = (unsigned)col;
             uint16_t *e = &((uint16_t *)(g_oled_fb + FB_DATA_OFF))[page * 128 + x];
