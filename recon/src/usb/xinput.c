@@ -18,11 +18,38 @@ static void xpad_neutral(void)
     s_xpad.g[0x11] = s_xpad.g[0x12] = s_xpad.g[0x13] = s_xpad.g[0x14] = 0x80;
 }
 
+// tusb_xinput's open() returns the consumed descriptor length as uint16_t; TinyUSB 0.18 wants
+// bool. Calling through the mismatched pointer in usbh_xinput_driver is UB (it happened to work:
+// usbh.c only tests the result), so register our own table around a bool adapter. The callbacks
+// are external symbols the dep does not declare in xinput_host.h.
+bool     xinputh_init(void);
+uint16_t xinputh_open(uint8_t rhport, uint8_t dev_addr, tusb_desc_interface_t const *desc_itf,
+                      uint16_t max_len);
+bool     xinputh_set_config(uint8_t dev_addr, uint8_t itf_num);
+bool     xinputh_xfer_cb(uint8_t dev_addr, uint8_t ep_addr, xfer_result_t result,
+                         uint32_t xferred_bytes);
+void     xinputh_close(uint8_t dev_addr);
+
+static bool xinputh_open_bool(uint8_t rhport, uint8_t dev_addr,
+                              tusb_desc_interface_t const *desc_itf, uint16_t max_len)
+{
+    return xinputh_open(rhport, dev_addr, desc_itf, max_len) != 0;
+}
+
+static usbh_class_driver_t const s_xinput_driver = {
+    .name       = "XINPUT",
+    .init       = xinputh_init,
+    .open       = xinputh_open_bool,
+    .set_config = xinputh_set_config,
+    .xfer_cb    = xinputh_xfer_cb,
+    .close      = xinputh_close,
+};
+
 // TinyUSB hook: register app-level host class drivers (the xinput driver).
 usbh_class_driver_t const *usbh_app_driver_get_cb(uint8_t *driver_count)
 {
     *driver_count = 1;
-    return &usbh_xinput_driver;
+    return &s_xinput_driver;
 }
 
 static void map_pad(const xinput_gamepad_t *pad)
