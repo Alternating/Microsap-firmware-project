@@ -322,3 +322,111 @@ int vmu_set_condition(vmu_state_t *v, const uint32_t *frame)
     buzzer_set(b[7], b[6], 8);
     return 0;
 }
+
+// ---- Slot 1 on the sub-device table ----------------------------------------------
+// The VMU arms of the original core1 dispatch (0x10000298), moved: same headers, bodies and
+// order. Each runs on core1 inside the reply budget.
+#include "maple_frames.h"
+extern int settings_read_field(int field, void *v, int x);   // 0x10004218
+
+static uint32_t rd32(const uint8_t *p) { uint32_t w; memcpy(&w, p, 4); return w; }
+
+int vmu_subdev_handle(void *ctx, const maple_req_t *rq, maple_frame_t *out)
+{
+    vmu_state_t *v = ctx;
+    const uint8_t *f = rq->frame;
+    const int ack = MAPLE_SUBDEV_REPLY;
+    out->header = MAPLE_HDR_ACK_SUB;
+    out->payload = 0;
+
+    switch (rq->cmd) {
+    case MAPLE_CMD_DEVICE_REQUEST:
+        out->header = MAPLE_HDR_DEVICE_STATUS_VMU;          // DAT_100008ec: 0x0500011c
+        out->payload = v->devinfo_body;
+        return MAPLE_SUBDEV_REPLY;
+
+    case MAPLE_CMD_ALL_STATUS_REQ:
+        return 0;                                          // sub-devices don't answer (raw gate)
+
+    case MAPLE_CMD_GET_CONDITION: {
+        // Games poll the VMU functions (clock/storage) with GET_CONDITION; unanswered polls
+        // make the console drop the whole device. Echo the function with an all-zero
+        // condition (MapleSyrup does the same).
+        static uint8_t vmu_cond[8];
+        memset(vmu_cond, 0, sizeof vmu_cond);
+        vmu_cond[3] = (uint8_t)rq->func;
+        out->header = MAPLE_HDR_DATA_SHORT_VMU;            // 0x08000102 (2 words)
+        out->payload = vmu_cond;
+        return MAPLE_SUBDEV_REPLY;
+    }
+
+    case MAPLE_CMD_GET_MEDIA_INFO:
+        if (rq->func == MAPLE_FUNC_STORAGE) {
+            vmu_media_info_build(v);
+            out->header = MAPLE_HDR_DATA_MEDIA_INFO;       // 0x08000107 (7 words)
+            out->payload = v->media_resp;
+            return MAPLE_SUBDEV_REPLY;
+        }
+        if (rq->func == MAPLE_FUNC_LCD) {
+            // func 0x04 + LCD geometry word (48x32 1bpp)  TODO(verify @auStack_33 content)
+            static const uint8_t lcd_minfo[8] = { 0,0,0,0x04, 0x00,0x10,0x1f,0x2f };
+            out->header = MAPLE_HDR_DATA_SHORT_VMU;        // 0x08000102 (2 words)
+            out->payload = lcd_minfo;
+            return MAPLE_SUBDEV_REPLY;
+        }
+        return 0;
+
+    case MAPLE_CMD_BLOCK_READ:
+        if (rq->func != MAPLE_FUNC_STORAGE) return 0;
+        if (vmu_block_read(v, rd32(f + 8)) == 0) {
+            out->header = MAPLE_HDR_DATA_BLOCK_READ;       // 0x08000182 (130 words)
+            out->payload = (const uint8_t *)&v->blk_resp_func;   // blk_resp_func..data
+        } else {
+            out->header = MAPLE_HDR_ERR_SUB;               // 0xfc000200 (DAT_100021cc)
+        }
+        return MAPLE_SUBDEV_REPLY | MAPLE_SUBDEV_IDLE_RESET;
+
+    case MAPLE_CMD_BLOCK_WRITE:
+        if (rq->func == MAPLE_FUNC_STORAGE) {
+            vmu_block_write(v, rd32(f + 8), (const uint32_t *)(f + 12), rq->len - 2);
+            return ack;
+        }
+        if (rq->func == MAPLE_FUNC_LCD) {
+            vmu_lcd_write(v, rd32(f + 8), (const uint32_t *)(f + 12), rq->len - 2);
+            vmu_lcd_render_notify(v);
+            return ack;
+        }
+        return 0;
+
+    case MAPLE_CMD_GET_LAST_ERROR:                         // write sync
+        if (rq->func != MAPLE_FUNC_STORAGE) return 0;
+        return ack | MAPLE_SUBDEV_IDLE_RESET;
+
+    case MAPLE_CMD_SET_CONDITION:                          // clock function: buzzer
+        // The function word is the first payload word, f+4. The original handed f+8, so
+        // vmu_set_condition compared the condition word against the clock code and the
+        // buzzer never sounded.
+        if (vmu_set_condition(v, (const uint32_t *)(f + 4))) return 0;
+        return ack;
+
+    case MAPLE_CMD_GAMEID:                                 // OpenMenu/GDEMU GameID (custom)
+        // ack_then_gid: acknowledge, then switch to the per-game bank if gameid mode is on.
+        // The original sent an empty frame where the ack belonged on the success path.
+        if (vmu_gameid_store(v, (const uint32_t *)(f + 4), rq->len) != 0) return ack;
+        return ack | MAPLE_SUBDEV_AFTER;
+
+    default:
+        return 0;
+    }
+}
+
+void vmu_subdev_after(void *ctx)
+{
+    char en = 0;
+    if (settings_read_field(8, &en, true) && en) vmu_load_gameid_bank(ctx, true);
+}
+
+void vmu_subdev_tick(void *ctx, uint32_t idle_frames)
+{
+    if (idle_frames > 100) vmu_flush_dirty(ctx);
+}

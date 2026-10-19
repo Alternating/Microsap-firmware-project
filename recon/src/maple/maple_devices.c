@@ -85,3 +85,83 @@ void dc_reset_device_mode(void)               // 0x1000151c
     s_device_mode = MAPLE_FUNC_CONTROLLER;
     // TODO(verify @0x1000151c): restore standard controller presentation
 }
+
+// ---- Sub-device table -------------------------------------------------------------
+// One entry per slot that can ever answer. The engine resolves a frame's recipient AP against
+// it (maple.c); presence is snapshotted once per frame, so a handler never sees a slot appear
+// or vanish mid-transaction.
+#include "maple_subdev.h"
+#include "maple_frames.h"
+#include "vmu.h"
+#include "control.h"     // rumble_start / rumble_set_block (drained on core0 by rumble_tick)
+
+extern uint8_t g_subperiph_mask;
+
+// Their VMU, slot 1. Aligned: the packed state's u32 fields are word-accessed by vmu.c, and
+// a packed type alone has alignment 1.
+static vmu_state_t s_vmu __attribute__((aligned(4)));
+static bool s_vmu_ready;
+// TODO(vmu): the console rejected the VMU when it was last advertised (b09fd43); slot 1 stays
+// off until its device info and state are fixed.
+static const bool s_vmu_advertise = false;
+
+static bool vmu_present(void *ctx) { (void)ctx; return s_vmu_ready && s_vmu_advertise; }
+
+void maple_subdevs_init(void)
+{
+    vmu_init(&s_vmu);
+    vmu_load_bank(&s_vmu, 0, false);   // core1 loads the default bank; control_init re-picks later
+    s_vmu_ready = true;
+}
+
+void maple_subdev_vmu_bank_cycle(bool forward)
+{
+    vmu_bank_cycle(&s_vmu, forward);
+}
+
+// Their Puru Puru, slot 2. It has no device info yet (the original's lives at 0x100a2994 and
+// was never reconstructed), so it is never present and the console never addresses it. The
+// arms are kept so that giving it device info is the only step left; the ones that sent an
+// empty frame now send nothing.
+static bool rumble_present(void *ctx) { (void)ctx; return false; }
+
+static int rumble_handle(void *ctx, const maple_req_t *rq, maple_frame_t *out)
+{
+    (void)ctx;
+    if (rq->func != MAPLE_FUNC_VIBRATION) return 0;
+    switch (rq->cmd) {
+    case MAPLE_CMD_BLOCK_WRITE:   rumble_set_block(0, 0); break;
+    case MAPLE_CMD_SET_CONDITION: rumble_start(0, 0);     break;
+    default: return 0;   // DEVICE_REQUEST, GET_MEDIA_INFO, BLOCK_READ: no reply content yet
+    }
+    out->header = MAPLE_HDR_ACK_SUB;
+    out->payload = 0;
+    return MAPLE_SUBDEV_REPLY;
+}
+
+const maple_subdev_t g_maple_subdevs[] = {
+    { .slot_bit = P2M_SUBPERIPH_VMU, .func = MAPLE_FUNC_STORAGE | MAPLE_FUNC_LCD | MAPLE_FUNC_CLOCK,
+      .devinfo = NULL, .ctx = &s_vmu, .present = vmu_present, .handle = vmu_subdev_handle,
+      .after = vmu_subdev_after, .tick = vmu_subdev_tick },
+    { .slot_bit = P2M_SUBPERIPH_RUMBLE, .func = MAPLE_FUNC_VIBRATION,
+      .devinfo = NULL, .ctx = NULL, .present = rumble_present, .handle = rumble_handle },
+};
+const unsigned g_maple_subdev_count = sizeof g_maple_subdevs / sizeof g_maple_subdevs[0];
+
+uint8_t maple_subdev_snapshot(void)
+{
+    uint8_t m = 0;
+    for (unsigned i = 0; i < g_maple_subdev_count; i++)
+        if (g_maple_subdevs[i].present(g_maple_subdevs[i].ctx)) m |= g_maple_subdevs[i].slot_bit;
+    g_subperiph_mask = m;
+    return m;
+}
+
+const maple_subdev_t *maple_subdev_find(uint8_t dst)
+{
+    uint8_t bit = dst & 0x1f & g_subperiph_mask;
+    if (!bit) return NULL;
+    for (unsigned i = 0; i < g_maple_subdev_count; i++)
+        if (g_maple_subdevs[i].slot_bit == bit) return &g_maple_subdevs[i];
+    return NULL;   // more than one bit: not a valid recipient
+}

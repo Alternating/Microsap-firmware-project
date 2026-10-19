@@ -73,4 +73,10 @@ void vmu_bank_cycle(vmu_state_t *v, bool forward);                              
 int  vmu_gameid_store(vmu_state_t *v, const uint32_t *w, unsigned len_words);   // 0x10002b44
 int  vmu_set_condition(vmu_state_t *v, const uint32_t *frame);                  // 0x10002bbc
 
+// Slot 1 on the Maple sub-device table (maple_subdev.h); ctx is the vmu_state_t.
+#include "maple_subdev.h"
+int  vmu_subdev_handle(void *ctx, const maple_req_t *rq, maple_frame_t *out);
+void vmu_subdev_after(void *ctx);                    // GAMEID: load the per-game bank after the ack
+void vmu_subdev_tick(void *ctx, uint32_t idle_frames); // flush one dirty page once the bus is idle
+
 #endif

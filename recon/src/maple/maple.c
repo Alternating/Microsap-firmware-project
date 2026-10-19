@@ -28,6 +28,7 @@
 #include "maple.h"
 #include "maple.pio.h"   // generated: maple_tx_program / maple_rx_program
 #include "maple_frames.h"   // decoded Maple response headers
+#include "maple_subdev.h"   // the sub-device table: their VMU, their Puru Puru
 
 // Controller GET_CONDITION reply: DATA_TRANSFER (cmd 8), 3 words (func + 8-byte condition),
 // src AP 0x20 (main peripheral). Verified from the original: header DAT_10001b6c = 0x08002003.
@@ -49,7 +50,8 @@ volatile uint32_t g_maple_rx_words, g_maple_rx_resync;
 volatile uint32_t g_maple_cond_sent;   // controller condition replies actually transmitted
 volatile uint32_t g_maple_devreq_sent;  // DEVICE_STATUS replies actually transmitted
 volatile uint32_t g_maple_last_miss;    // latest unanswered GET_CONDITION: (func << 8) | dst
-// @0x20001668: attached sub-peripheral mask (P2M_SUBPERIPH_*); also patches sender AP on TX
+// @0x20001668: attached sub-peripheral mask (P2M_SUBPERIPH_*); also patches sender AP on TX.
+// Rebuilt from the sub-device table's present() once per frame (maple_subdev_snapshot).
 uint8_t g_subperiph_mask;
 // @0x2000e970: RX frame buffer (0x400 bytes: len,src,dst,cmd + payload + xor)
 static uint8_t g_rx_buf[0x400];
@@ -68,25 +70,10 @@ queue_t g_kbd_queue;
 // Cross-module (other reconstruction units)
 extern void sd_ensure_dirs(void);                           // 0x100039d0
 extern void maple_build_device_info_blocks(void *hdr, void *body, int func); // 0x1000066c
-extern void vmu_build_device_info(void *hdr, void *body);   // 0x10000824
-extern void vmu_init(uint8_t *vmu_buf);                     // 0x10002568
-extern void vmu_load_bank(uint8_t *vmu_buf, int bank, int gameid, ...); // 0x10002948
-extern void vmu_load_gameid_bank(uint8_t *vmu_buf, int flags);          // 0x10002aa0
-extern void vmu_bank_cycle(uint8_t *vmu_buf, bool forward, uint32_t t_lo, uint32_t t_hi); // 0x10002ac4
-extern void vmu_flush_dirty(uint8_t *vmu_buf, ...);         // 0x1000278c
-extern int  vmu_block_read(void *v, uint32_t addr);         // 0x10002748 (0 = ok)
-extern void vmu_block_write(uint8_t *vmu_buf, uint32_t addr, const void *data, int words); // 0x100028a4
-extern void vmu_lcd_write(uint8_t *vmu_buf, uint32_t addr, const void *data, int words);   // 0x1000290c
-extern int  vmu_set_condition(uint8_t *vmu_buf, const void *cond, int len); // 0x10002bbc (buzzer)
-extern int  vmu_gameid_store(uint8_t *vmu_buf, const void *payload, int len); // 0x10002b44
+// (the VMU calls live in vmu.c behind the sub-device table; vmu.h has their prototypes)
 extern void vmu_storage_enable(int en);                     // 0x10003938
 extern void vmu_invalidate(void);                           // 0x10002eb8
-extern void vmu_media_info_build(void *v);                  // 0x10002250
-extern int  vmu_lcd_render_notify(void *v);                 // 0x100028f4
 extern void oled_init(bool rotated);          // 0x10002d64
-extern int  rumble_get_cond(void *a, void *b);              // 0x10007c30
-extern void rumble_set_block(void *a, void *b);             // 0x10007c14 (BLOCK_WRITE func 0x100)
-extern void rumble_start(void *a, void *b);                 // 0x10007b60 (SET_CONDITION func 0x100)
 extern void rumble_stop(void);                              // 0x10007c4c
 extern void usb_announce(void *x);                          // 0x10007b24 TODO(verify semantics)
 // settings (storage module)
@@ -371,9 +358,7 @@ void maple_core1_main(void)
 {
     static maple_pio_ctx_t rx_ctx = { pio0, 0, 0 };
     static maple_pio_ctx_t tx_ctx = { pio1, 0, 0 };
-    // 128KB VMU image: static (.bss) rather than on core1's stack (the original kept it on the
-    // stack, which needs a custom core1 stack region; a static buffer is cleaner for our build).
-    static uint8_t vmu_buf[131264];      // auStack_20468
+    // The VMU state (the original's auStack_20468) is the sub-device table's, in maple_devices.c.
     uint8_t settings[256];               // auStack_20568
     uint8_t allstat[192];                // ALL_STATUS extension body
 
@@ -399,14 +384,10 @@ void maple_core1_main(void)
     gpio_set_pulls(pin, true, false);
     gpio_set_pulls(pin + 1, true, false);
 
-    // Device info blocks: controller (per active layout) + VMU.
+    // Device info: the controller's (per active layout). Sub-devices carry their own.
     // NOTE: pass NULL for the ref pair — our dispatch uses explicit headers; the original wrote
     // the pair at devinfo-8 (adjacent globals), which here would underflow into unrelated .bss.
-    // The VMU body is 112 bytes and needs a real static home (a 28-byte stack buffer overflowed).
-    static uint8_t vmu_devinfo_body[112];
-    static uint8_t vmu_devinfo_ref[8];           // {header, body*} pair (vmu_devinfo_ref_t)
     maple_build_device_info_blocks(NULL, g_devinfo_payload, MAPLE_FUNC_CONTROLLER);
-    vmu_build_device_info(vmu_devinfo_ref, vmu_devinfo_body);
 
     // Condition blocks
     g_dc_controller_cond.func = 0x01000000;          // FUNC_CONTROLLER big-endian
@@ -421,16 +402,13 @@ void maple_core1_main(void)
     queue_init_with_spinlock(&g_kbd_queue, 12, 5, spin_lock_claim_unused(true));
 
     puts("[core1] VMU init...");
-    vmu_init(vmu_buf);
+    maple_subdevs_init();            // vmu_init + the default bank (vmu_load_bank(0) below, moved)
     puts("[core1] VMU ready");
     // NOTE: the status screen (bank/INT/SD glyphs) is drawn into the framebuffer but NOT
     // presented yet — our reconstructed glyph offsets wrap across page boundaries and render
     // garbled. Keep the clean splash until the OLED layout is corrected with hardware feedback.
     // TODO(oled): fix glyph offsets / page wrapping, then present the status screen here.
-    // A/B test: VMU advertising disabled — the console rejects our current VMU device-info
-    // and loops re-enumeration of the whole port. Pure controller until the VMU reply content
-    // is verified against console behavior.  TODO(vmu): re-enable after fixing devinfo body.
-    // g_subperiph_mask |= P2M_SUBPERIPH_VMU;
+    // Whether slot 1 is advertised is the VMU entry's present() (maple_devices.c).
     usb_announce(/*DAT_10001b80*/ 0);
 
     // Settings load + custom-map load now live on core0 in control_init(); core1 just loads the
@@ -438,7 +416,6 @@ void maple_core1_main(void)
     // bumps g_devinfo_rebuild. (See control.c; this split is a Path-B change from the original,
     // which did all of this on core1.)
     (void)settings;
-    vmu_load_bank(vmu_buf, 0, false);
 
     // ---- PIO bring-up (exact register values preserved) ----
     rx_ctx.offset = pio_add_program(pio0, &maple_rx_program);
@@ -496,7 +473,7 @@ void maple_core1_main(void)
             // (b) SD flush tick: after >99 frames idle-ish, flush dirty VMU blocks
             //     (raw: if (*DAT_10001bc0 && frames>99) { vmu_flush_dirty(); hotplug_tick(); })
         } else if (/* debounce deadline reached */ time_us_64() >= bank_debounce_deadline) {
-            vmu_bank_cycle(vmu_buf, g_bank_switch_req == 1, 0, 0);
+            maple_subdev_vmu_bank_cycle(g_bank_switch_req == 1);
             char b; settings_get(settings, 1, &b);
             settings_set(settings, 8, /* gid flag according to b=='\n' check */ 0);
             settings_save(settings, 1);
@@ -514,79 +491,82 @@ void maple_core1_main(void)
             g_devinfo_rebuild = 0;
         }
 
-        // (d) receive one frame; on error send nothing (original: tx "resend"? — raw shows
-        //     FUN_10001660 with DAT_10001ee8 header on rx error TODO(verify @0x10001c06))
-        if (maple_rx_frame(&rx_ctx) == -1) {
-            maple_frame_t err = { .header = /*DAT_10001ee8*/ 0, .payload = 0 };
-            maple_tx_frame(&tx_ctx, &err);
+        // (d) receive one frame; on a bad checksum send nothing and let the console retry.
+        //     The original transmitted header DAT_10001ee8 here (TODO(verify @0x10001c06)),
+        //     which this reconstruction had as 0: an empty frame from AP 0 that no peripheral
+        //     sends. Staying silent is what the console-proven bridge firmware does.
+        if (maple_rx_frame(&rx_ctx) == -1)
             continue;
-        }
         frames_lo++;
         g_maple_frames++;
 
         const uint8_t *f = g_rx_buf;     // [len][src][dst][cmd]
         uint8_t len = f[0], dst = f[2], cmd = f[3];
         uint32_t func = *(const uint32_t *)(f + 4);   // first payload word (host order)
-        bool to_vmu    = (dst & 1) && (g_subperiph_mask & P2M_SUBPERIPH_VMU);
-        bool to_rumble = (dst & 2) && (g_subperiph_mask & P2M_SUBPERIPH_RUMBLE);
         maple_frame_t out = {0};
+        maple_subdev_snapshot();                      // presence, fixed for this frame
 
-        switch (cmd) {
-        case MAPLE_CMD_DEVICE_REQUEST:
+        if (cmd == MAPLE_CMD_DEVICE_REQUEST) {
             g_maple_dev_req++;
             if (dst & 0x40) g_maple_port = dst >> 6;   // capture port addressing
-            if (!(dst & 3)) {                           // main device
-                out.header = MAPLE_HDR_DEVICE_STATUS_MAIN;   // cmd 5, 28 words (112B devinfo)
-                out.payload = g_devinfo_payload;
+        }
+        if (cmd == MAPLE_CMD_GET_CONDITION) {
+            g_maple_get_cond++;
+            for (unsigned i = 0; i < g_maple_subdev_count; i++)    // vmu: flush once idle
+                if (g_maple_subdevs[i].tick) g_maple_subdevs[i].tick(g_maple_subdevs[i].ctx, frames_lo);
+        }
+
+        if (dst & 0x1f) {
+            // A sub-device slot. Every slot bit resolves through the table; the old main test
+            // (!(dst & 3)) let slot 3 alias the main device.
+            const maple_subdev_t *sd = maple_subdev_find(dst);
+            maple_req_t rq = { .frame = f, .len = len, .dst = dst, .cmd = cmd, .func = func };
+            int r = sd ? sd->handle(sd->ctx, &rq, &out) : 0;
+            if (r & MAPLE_SUBDEV_REPLY) {
+                // The reply's source AP is the slot it was asked on, not a header constant's.
+                out.header = (out.header & ~0xff00u) | ((uint32_t)sd->slot_bit << 8);
                 maple_tx_frame(&tx_ctx, &out);
-                g_maple_devreq_sent++;
-            } else if (to_vmu) {
-                out.header = MAPLE_HDR_DEVICE_STATUS_VMU;      // DAT_100008ec: 0x0500011c
-                out.payload = vmu_devinfo_body;
-                maple_tx_frame(&tx_ctx, &out);
-            } else if (to_rumble) {
-                maple_tx_frame(&tx_ctx, /*purupuru devinfo @0x100a2994 TODO*/ &out);
+                if (cmd == MAPLE_CMD_GET_CONDITION) g_maple_cond_sent++;
+            } else if (cmd == MAPLE_CMD_GET_CONDITION) {
+                goto cond_miss;
             }
+            if (r & MAPLE_SUBDEV_IDLE_RESET) frames_lo = 0;
+            if (r & MAPLE_SUBDEV_AFTER) sd->after(sd->ctx);
+        } else switch (cmd) {          // the main device
+        case MAPLE_CMD_DEVICE_REQUEST:
+            out.header = MAPLE_HDR_DEVICE_STATUS_MAIN;   // cmd 5, 28 words (112B devinfo)
+            out.payload = g_devinfo_payload;
+            maple_tx_frame(&tx_ctx, &out);
+            g_maple_devreq_sent++;
             break;
         case MAPLE_CMD_ALL_STATUS_REQ:
-            if (to_vmu || to_rumble) break;            // sub-devices don't answer (raw gate)
             out.header = MAPLE_HDR_ALL_STATUS; out.payload = allstat;
             maple_tx_frame(&tx_ctx, &out);
             break;
         case MAPLE_CMD_GET_CONDITION:
-            g_maple_get_cond++;
-            if (frames_lo > 100) vmu_flush_dirty(vmu_buf, frames_lo, 0);
             if (dst & 0x20) {                          // addressed to main device
                 if (func == MAPLE_FUNC_CONTROLLER) {
                     out.header = MAPLE_HDR_DATA_COND_CONTROLLER;
                     out.payload = (uint8_t *)&g_dc_controller_cond;
                     maple_tx_frame(&tx_ctx, &out);
                     g_maple_cond_sent++;
+                    break;
                 } else if (func == MAPLE_FUNC_MOUSE) {
                     maple_tx_frame(&tx_ctx, /*mouse cond*/ &out);
                     g_dc_mouse_cond.dx = g_dc_mouse_cond.dy = 0x200;
                     g_dc_mouse_cond.wheel = 0x200;
+                    break;
                 } else if (func == MAPLE_FUNC_KEYBOARD) {
                     // pull latest kbd report from queue into the condition block (0x100013c0)
                     maple_tx_frame(&tx_ctx, /*kbd cond*/ &out);
-                } else
-                    goto cond_miss;
-            } else if (to_vmu) {
-                // Games poll the VMU functions (clock/storage) with GET_CONDITION; unanswered
-                // polls make the console drop the whole device. Echo the function with an
-                // all-zero condition (MapleSyrup does the same).
-                static uint8_t vmu_cond[8];
-                memset(vmu_cond, 0, sizeof vmu_cond);
-                vmu_cond[3] = (uint8_t)func;
-                out.header = MAPLE_HDR_DATA_SHORT_VMU;         // 0x08000102 (2 words)
-                out.payload = vmu_cond;
-                maple_tx_frame(&tx_ctx, &out);
-                g_maple_cond_sent++;
-            } else {
-cond_miss:;
-                g_maple_last_miss = ((uint32_t)func << 8) | dst;
-                // Unanswered GET_CONDITION — one-shot dump of what the console wanted, so a
-                // recv/sent gap in the heartbeat can be attributed to a specific function.
+                    break;
+                }
+            }
+        cond_miss:
+            g_maple_last_miss = ((uint32_t)func << 8) | dst;
+            // Unanswered GET_CONDITION — one-shot dump of what the console wanted, so a
+            // recv/sent gap in the heartbeat can be attributed to a specific function.
+            {
                 static uint8_t miss_logged;
                 if (miss_logged < 24) {
                     miss_logged++;
@@ -594,76 +574,6 @@ cond_miss:;
                            dst, (unsigned long)func, len);
                 }
             }
-            break;
-        case MAPLE_CMD_GET_MEDIA_INFO:
-            if (to_vmu && func == MAPLE_FUNC_STORAGE) {
-                vmu_media_info_build((void*)vmu_buf);
-                out.header = MAPLE_HDR_DATA_MEDIA_INFO;        // 0x08000107 (7 words)
-                out.payload = vmu_buf + 0x20419;               // vmu_state_t.media_resp
-                maple_tx_frame(&tx_ctx, &out);
-            } else if (to_vmu && func == MAPLE_FUNC_LCD) {
-                // func 0x04 + LCD geometry word (48x32 1bpp)  TODO(verify @auStack_33 content)
-                static const uint8_t lcd_minfo[8] = { 0,0,0,0x04, 0x00,0x10,0x1f,0x2f };
-                out.header = MAPLE_HDR_DATA_SHORT_VMU;         // 0x08000102 (2 words)
-                out.payload = lcd_minfo;
-                maple_tx_frame(&tx_ctx, &out);
-            } else if (to_rumble && func == MAPLE_FUNC_VIBRATION) {
-                maple_tx_frame(&tx_ctx, /*static rumble media info TODO*/ &out);
-            }
-            break;
-        case MAPLE_CMD_BLOCK_READ:
-            if (to_vmu && func == MAPLE_FUNC_STORAGE) {
-                if (vmu_block_read((void*)vmu_buf, *(const uint32_t *)(f + 8)) == 0) {
-                    out.header = MAPLE_HDR_DATA_BLOCK_READ;    // 0x08000182 (130 words)
-                    out.payload = vmu_buf + 0x200c0;           // blk_resp_func..data
-                } else {
-                    out.header = 0xfc000200u;                  // file error, sub (DAT_100021cc)
-                    out.payload = 0;
-                }
-                maple_tx_frame(&tx_ctx, &out);
-                frames_lo = 0;
-            } else if (to_rumble && func == MAPLE_FUNC_VIBRATION) {
-                if (rumble_get_cond(0, 0)) maple_tx_frame(&tx_ctx, /*err*/ &out);
-                maple_tx_frame(&tx_ctx, /*rumble cond*/ &out);
-            }
-            break;
-        case MAPLE_CMD_BLOCK_WRITE:
-            if (to_vmu && func == MAPLE_FUNC_STORAGE) {
-                vmu_block_write(vmu_buf, *(const uint32_t *)(f + 8), f + 12, len - 2);
-                goto ack;
-            } else if (to_vmu && func == MAPLE_FUNC_LCD) {
-                vmu_lcd_write(vmu_buf, *(const uint32_t *)(f + 8), f + 12, len - 2);
-                vmu_lcd_render_notify((void*)vmu_buf);
-                goto ack;
-            } else if (to_rumble && func == MAPLE_FUNC_VIBRATION) {
-                rumble_set_block(0, 0);
-                goto ack;
-            }
-            break;
-        case MAPLE_CMD_GET_LAST_ERROR:                  // write sync
-            if (to_vmu && func == MAPLE_FUNC_STORAGE) { frames_lo = 0; goto ack; }
-            break;
-        case MAPLE_CMD_SET_CONDITION:
-            if (to_vmu) {                               // clock function: buzzer
-                if (vmu_set_condition(vmu_buf, f + 8, len)) break;
-                goto ack;
-            } else if (to_rumble && func == MAPLE_FUNC_VIBRATION) {
-                rumble_start(0, 0);
-                goto ack;
-            }
-            break;
-        case MAPLE_CMD_GAMEID:                          // OpenMenu/GDEMU GameID (custom)
-            if (!to_vmu) break;
-            if (vmu_gameid_store(vmu_buf, f + 4, len) != 0)
-                goto ack;
-            // ack_then_gid: acknowledge, then switch to the per-game VMU bank if gameid mode is on
-            maple_tx_frame(&tx_ctx, /*ACK 0x07000100*/ &out);
-            { char en = 0;
-              if (settings_read_field(8, &en, true) && en) vmu_load_gameid_bank(vmu_buf, 1); }
-            break;
-        ack:
-            out.header = 0x07000100; out.payload = 0;
-            maple_tx_frame(&tx_ctx, &out);
             break;
         default:
             break;
