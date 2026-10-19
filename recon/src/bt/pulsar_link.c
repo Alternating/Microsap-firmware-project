@@ -40,11 +40,13 @@ static const uint8_t PULSAR_SVC_UUID[16] = {
 #define PULSAR_FLAG_VMU      0x01
 #define PULSAR_RES_OK        0
 #define PULSAR_RES_FULL      1
+#define PULSAR_RES_FAILED    4
 #define PULSAR_RES_SUPERSEDED 6
 #define PULSAR_QUEUE_SLOTS   8      // the Pulsar's staging queue
 #define PULSAR_TICK_MS       10     // the store and LCD service period on the owning link
 #define PULSAR_READ_RETRY_MS 2000   // a READ with no DATA since: resend (refused if still held)
 #define PULSAR_ACK_RETRY_MS  500    // a WRITE with no ACK: resend the same (blk, seq)
+#define PULSAR_READ_TRIES    3      // READs of one block answered FAILED before the pull gives up
 #define PULSAR_READ_TRIES    3      // DATA … FAILED this often for one block ends the pull
 #define PULSAR_WRITE_RETRY_MS 5     // STATUS? retry period while GATT_CLIENT_BUSY
 #define PULSAR_WRITE_TRIES    200   // ~1 s of busy before it counts as a failure
@@ -96,6 +98,8 @@ typedef struct {
     bool sess, pulled;
     bd_addr_t peer;
     uint32_t epoch, card;
+    bool want_status;       // a STATUS? still to send, retried from the tick while busy
+    bool gave_up;           // a block's READ failed every try: no re-pull until a new generation
     // Pull: blocks to READ in order, one outstanding.
     bool pulling, read_out;
     uint8_t order[256];
@@ -228,11 +232,12 @@ static void store_on_status(pl_link_t *l)
     s_store.card = l->card;
     if (same) {
         if (s_store.pulled) pulsar_card_set_present(true);  // reconnect: image and queue stand
-        else if (!s_store.pulling) pull_start();            // the last pull did not finish
+        else if (!s_store.pulling && !s_store.gave_up) pull_start();   // the last pull did not finish
         return;
     }
     if (s_store.sess) printf("[pulsar] card: new generation, %u pending dropped\n", pulsar_card_pending());
     s_store.sess = true;
+    s_store.gave_up = false;
     s_store.epoch = l->epoch;
     bd_addr_copy(s_store.peer, l->addr);
     pull_start();
@@ -244,13 +249,27 @@ static void store_on_data(pl_link_t *l, const uint8_t *v, uint16_t len)
     uint8_t blk = v[1], phase = v[2], res = v[3];
     if (blk != s_store.order[s_store.i]) return;
     if (res != PULSAR_RES_OK) {
-        // NO_VMU and DISCARDED come with a new generation, FAILED ends one: let the next
-        // STATUS start over, and ask for it in case none is on its way.
+        if (res == PULSAR_RES_FAILED) {
+            // The Pulsar has already spent its own attempts, and the generation stands. A few more
+            // of ours, then the pull stops for this generation: a card that cannot be read stays
+            // absent rather than re-pulling for ever. A re-dock or a new link tries again.
+            s_store.phases = 0;
+            s_store.read_out = false;                       // the tick resends it at once
+            if (++s_store.tries < PULSAR_READ_TRIES) {
+                printf("[pulsar] card: READ %u failed, try %u\n", blk, s_store.tries + 1);
+                return;
+            }
+            printf("[pulsar] card: READ %u failed %u times, pull given up\n", blk, s_store.tries);
+            s_store.pulling = false;
+            s_store.gave_up = true;
+            return;
+        }
+        // NO_VMU and DISCARDED come with a new generation: let the next STATUS start over, and
+        // ask for it in case none is on its way, until the request actually goes.
         printf("[pulsar] card: READ %u result %u, pull stopped\n", blk, res);
         s_store.pulling = false;
         s_store.sess = false;
-        uint8_t op = PULSAR_OP_STATUS_REQ;
-        (void)store_write(l, &op, 1);
+        s_store.want_status = true;
         return;
     }
     if (len != 4 + PULSAR_CARD_PHASE || phase > 3) return;
@@ -261,6 +280,7 @@ static void store_on_data(pl_link_t *l, const uint8_t *v, uint16_t len)
 
     s_store.phases = 0;
     s_store.read_out = false;
+    s_store.tries = 0;
     s_store.i++;
     if (s_store.i == 2)
         printf("[pulsar] card: fingerprint %08lx, STATUS says %08lx\n",
@@ -370,6 +390,10 @@ static void store_tick(btstack_timer_source_t *ts)
     btstack_run_loop_add_timer(ts);
     if (l->state != PL_READY) return;
     uint32_t now = btstack_run_loop_get_time_ms();
+    if (s_store.want_status) {
+        uint8_t op = PULSAR_OP_STATUS_REQ;
+        if (store_write(l, &op, 1) == ERROR_CODE_SUCCESS) s_store.want_status = false;
+    }
     if (s_store.pulling) pull_service(l, now);
     else if (s_store.pulled && (l->flags & PULSAR_FLAG_VMU)) push_service(l, now);
     pulsar_lcd_progress(s_store.pulling ? s_store.i : 0, s_store.pulling ? s_store.n : 0);
@@ -387,6 +411,7 @@ static void store_drop(void)
     for (unsigned k = 0; k < s_store.nflight; k++) pulsar_card_requeue(s_store.flight[k].blk);
     store_forget_push();
     s_store.pulling = false;
+    s_store.want_status = false;        // the next link asks for STATUS as it subscribes
     s_store.owner = NULL;
     pulsar_lcd_reset();
 }
