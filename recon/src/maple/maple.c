@@ -554,9 +554,16 @@ void maple_core1_main(void)
             }
             break;
         case MAPLE_CMD_ALL_STATUS_REQ:
-            if (to_vmu || to_rumble) break;            // sub-devices don't answer (raw gate)
-            out.header = MAPLE_HDR_ALL_STATUS; out.payload = s_allstat;
-            maple_tx_frame(&tx_ctx, &out);
+            // Original (case 2 of the dispatch): replies ONLY when addressed to the VMU
+            // (dst bit0 + mask bit0); header 0x06000130 has src AP 0x01 = slot 1. The main
+            // device does not answer ALL_STATUS. (We previously had this exactly backwards —
+            // the console interrogates the VMU with ALL_STATUS and silence drops the port.)
+            if (to_vmu) {
+                memcpy(s_allstat, vmu_devinfo_body, 112);
+                memset(s_allstat + 112, 0, 80);
+                out.header = MAPLE_HDR_ALL_STATUS; out.payload = s_allstat;
+                maple_tx_frame(&tx_ctx, &out);
+            }
             break;
         case MAPLE_CMD_GET_CONDITION:
             g_maple_get_cond++;
