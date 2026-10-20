@@ -373,7 +373,11 @@ void maple_core1_main(void)
     static maple_pio_ctx_t tx_ctx = { pio1, 0, 0 };
     // 128KB VMU image: static (.bss) rather than on core1's stack (the original kept it on the
     // stack, which needs a custom core1 stack region; a static buffer is cleaner for our build).
-    static uint8_t vmu_buf[131264];      // auStack_20468
+    // Sized to cover the FULL vmu_state_t (image + response areas + media_resp @0x20419 +
+    // slack). The previous 131264 (0x200C0) only covered image+block-response: every boot,
+    // vmu_init wrote ~0x375 bytes past the buffer into adjacent .bss - which after the VMU
+    // re-enable build landed on Bluetooth state and silently broke pairing.
+    static uint8_t vmu_buf[0x20600];     // auStack_20468 (original stack frame was 0x20630)
     uint8_t settings[256];               // auStack_20568
     // ALL_STATUS payload: devinfo (112B) + zeroed 80B extension (no version text in the
     // original binary; zeros are safe — previously this was an UNINITIALIZED stack buffer).
