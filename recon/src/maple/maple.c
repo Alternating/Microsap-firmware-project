@@ -51,6 +51,10 @@ volatile uint32_t g_maple_devreq_sent;  // DEVICE_STATUS replies actually transm
 volatile uint32_t g_maple_last_miss;    // latest unanswered GET_CONDITION: (func << 8) | dst
 volatile uint32_t g_maple_blk_writes;   // BLOCK_WRITE count (storage func)
 volatile uint32_t g_maple_last_wspec;   // raw spec word of the latest storage write
+volatile uint32_t g_maple_blk_reads;    // BLOCK_READ count (storage func)
+volatile uint32_t g_maple_blk_read_errs;// BLOCK_READs we answered with a file error
+volatile uint32_t g_maple_last_rspec;   // raw spec word of the latest storage read
+volatile uint32_t g_maple_minfo_reqs;   // GET_MEDIA_INFO (storage) count
 uint8_t *g_vmu_image_dbg;               // debug window into the VMU image (set at core1 init)
 // @0x20001668: attached sub-peripheral mask (P2M_SUBPERIPH_*); also patches sender AP on TX
 uint8_t g_subperiph_mask;
@@ -617,6 +621,7 @@ cond_miss:;
             break;
         case MAPLE_CMD_GET_MEDIA_INFO:
             if (to_vmu && func == MAPLE_FUNC_STORAGE) {
+                g_maple_minfo_reqs++;
                 vmu_media_info_build((void*)vmu_buf);
                 out.header = MAPLE_HDR_DATA_MEDIA_INFO;        // 0x08000107 (7 words)
                 out.payload = vmu_buf + 0x20419;               // vmu_state_t.media_resp
@@ -633,10 +638,13 @@ cond_miss:;
             break;
         case MAPLE_CMD_BLOCK_READ:
             if (to_vmu && func == MAPLE_FUNC_STORAGE) {
+                g_maple_blk_reads++;
+                g_maple_last_rspec = *(const uint32_t *)(f + 8);
                 if (vmu_block_read((void*)vmu_buf, *(const uint32_t *)(f + 8)) == 0) {
                     out.header = MAPLE_HDR_DATA_BLOCK_READ;    // 0x08000182 (130 words)
                     out.payload = vmu_buf + 0x200c0;           // blk_resp_func..data
                 } else {
+                    g_maple_blk_read_errs++;
                     out.header = 0xfc000200u;                  // file error, sub (DAT_100021cc)
                     out.payload = 0;
                 }

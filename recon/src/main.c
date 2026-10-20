@@ -149,8 +149,13 @@ int main(void)
                     } else if (strcmp(cmd, "P2M_VMU_DIR") == 0) {
                         extern uint8_t *g_vmu_image_dbg;
                         extern volatile uint32_t g_maple_blk_writes, g_maple_last_wspec;
-                        printf("[vmu] writes=%lu last_spec=%08lx\n",
+                        extern volatile uint32_t g_maple_blk_reads, g_maple_blk_read_errs,
+                                                 g_maple_last_rspec, g_maple_minfo_reqs;
+                        printf("[vmu] writes=%lu last_wspec=%08lx\n",
                                (unsigned long)g_maple_blk_writes, (unsigned long)g_maple_last_wspec);
+                        printf("[vmu] reads=%lu errs=%lu last_rspec=%08lx minfo=%lu\n",
+                               (unsigned long)g_maple_blk_reads, (unsigned long)g_maple_blk_read_errs,
+                               (unsigned long)g_maple_last_rspec, (unsigned long)g_maple_minfo_reqs);
                         if (g_vmu_image_dbg) {
                             const uint8_t *dir = g_vmu_image_dbg + 253 * 512;  // directory block
                             for (int e = 0; e < 4; e++) {
