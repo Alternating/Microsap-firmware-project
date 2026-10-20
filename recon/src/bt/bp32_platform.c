@@ -101,6 +101,12 @@ static void p2m_on_controller_data(uni_hid_device_t *d, uni_controller_t *ctl)
 {
     g_bp32_reports++;
     g_bp32_last_report_us = time_us_64();
+    // diagnostic: dump the raw uni button word on change (short token survives a lossy UART)
+    {
+        static uint32_t last_b = 0xffffffff;
+        uint32_t b = ctl->gamepad.buttons;
+        if (b != last_b) { last_b = b; printf("BX=%04x\n", (unsigned)b); }
+    }
     s_active = d;
     switch (ctl->klass) {
     case UNI_CONTROLLER_CLASS_GAMEPAD:
