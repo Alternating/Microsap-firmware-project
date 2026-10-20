@@ -1,6 +1,6 @@
 # Hardware-verified button map — standard layout (3), Xbox BT pad
 
-Verified 2026-10-19 by live guided sweep: each input held on a paired Xbox Wireless
+Verified 2026-10-19 by live guided sweep (second stick verified same day): each input held on a paired Xbox Wireless
 Controller while reading the firmware's Dreamcast condition block over the debug UART.
 `btn` values are the DC active-low button mask as transmitted to the console.
 
@@ -21,6 +21,8 @@ Controller while reading the firmware's Dreamcast condition block over the debug
 |13 | RT (analog)       | throttle               | C (bit 0) when pull > 199     | btn=fffe            |
 |14 | Stick left/right  | axis_x                 | joyx 0x00..0xff (0 = left)    | stick=00,.. at full |
 |15 | Stick up/down     | axis_y                 | joyy 0x00..0xff (0 = up)      | stick=..,00 at full |
+|15a| R-stick left/right| axis_rx                | joy2x 0x00..0xff (0 = left)   | s2=00,.. at full    |
+|15b| R-stick up/down   | axis_ry                | joy2y 0x00..0xff (0 = up)     | s2=..,00 at full    |
 |16 | View              | MISC_BUTTON_SELECT     | none — hotkey modifier; gameplay output suppressed while held | btn stays ffff, raw presses visible |
 
 The LB/RT→trigger/C cross-routing is faithful to the original firmware's standard layout
