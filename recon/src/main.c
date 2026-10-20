@@ -120,7 +120,7 @@ int main(void)
                    (unsigned long)g_maple_last_miss,
                    gp ? " [pad active]" : "",
                    (unsigned long)rate, (unsigned long)age_ms,
-                   c->buttons, c->ltrig, c->rtrig, c->joyx, c->joyy);
+                   c->buttons, c->ltrig, c->rtrig, c->joyx, c->joyy, c->joy2x, c->joy2y);
         }
 
         // Serial console commands (debug UART): CLI reflash/reboot without touching BOOTSEL.
