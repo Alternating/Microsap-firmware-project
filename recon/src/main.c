@@ -159,8 +159,12 @@ int main(void)
             }
         }
 
-        // Mode button: short press cycles VMU bank; long hold toggles a built-in layout.
-        int ev = button_poll(&g_mode_button);   // 0x10003d78
+        // Mode button DISABLED: it was wired to GPIO15 (a guess; original pin is a TODO),
+        // which on the Maple Tap is the floating layout-sense pin. Noise on the floating
+        // input produced phantom presses: random VMU bank switches ("memory card removed/
+        // recognized" on screen) plus settings flash writes that park core0 (BT) mid-game.
+        // Controller hotkeys (View+RB/LB etc.) provide the same functions.
+        int ev = 0; (void)g_mode_button;        // TODO: map the real button pin from the schematic
         if (ev == 1) {
             maple_request_bank_switch(+1);       // 0x100008f0
         } else if (ev == 2) {
