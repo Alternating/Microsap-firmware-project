@@ -375,7 +375,9 @@ void maple_core1_main(void)
     // stack, which needs a custom core1 stack region; a static buffer is cleaner for our build).
     static uint8_t vmu_buf[131264];      // auStack_20468
     uint8_t settings[256];               // auStack_20568
-    uint8_t allstat[192];                // ALL_STATUS extension body
+    // ALL_STATUS payload: devinfo (112B) + zeroed 80B extension (no version text in the
+    // original binary; zeros are safe — previously this was an UNINITIALIZED stack buffer).
+    static uint8_t s_allstat[192];
 
     // (core0 is the lockout victim — set up in main before launch — so core1 can pause it
     // around flash writes; core1 itself is not a victim.)
@@ -406,6 +408,8 @@ void maple_core1_main(void)
     static uint8_t vmu_devinfo_body[112];
     static uint8_t vmu_devinfo_ref[8];           // {header, body*} pair (vmu_devinfo_ref_t)
     maple_build_device_info_blocks(NULL, g_devinfo_payload, MAPLE_FUNC_CONTROLLER);
+    memcpy(s_allstat, g_devinfo_payload, 112);
+    memset(s_allstat + 112, 0, 80);
     vmu_build_device_info(vmu_devinfo_ref, vmu_devinfo_body);
 
     // Condition blocks
@@ -427,10 +431,9 @@ void maple_core1_main(void)
     // presented yet — our reconstructed glyph offsets wrap across page boundaries and render
     // garbled. Keep the clean splash until the OLED layout is corrected with hardware feedback.
     // TODO(oled): fix glyph offsets / page wrapping, then present the status screen here.
-    // A/B test: VMU advertising disabled — the console rejects our current VMU device-info
-    // and loops re-enumeration of the whole port. Pure controller until the VMU reply content
-    // is verified against console behavior.  TODO(vmu): re-enable after fixing devinfo body.
-    // g_subperiph_mask |= P2M_SUBPERIPH_VMU;
+    // VMU re-enabled: its devinfo body is now byte-verified against the binary, and the
+    // ALL_STATUS garbage reply (prime rejection suspect) is fixed.
+    g_subperiph_mask |= P2M_SUBPERIPH_VMU;
     usb_announce(/*DAT_10001b80*/ 0);
 
     // Settings load + custom-map load now live on core0 in control_init(); core1 just loads the
@@ -511,6 +514,8 @@ void maple_core1_main(void)
             // layout internally. Passing the layout here produced a function-less device info,
             // so any re-enumeration after boot (console power cycle, reconnect) ignored us.
             maple_build_device_info_blocks(NULL, g_devinfo_payload, MAPLE_FUNC_CONTROLLER);
+            memcpy(s_allstat, g_devinfo_payload, 112);
+            memset(s_allstat + 112, 0, 80);
             g_devinfo_rebuild = 0;
         }
 
@@ -550,7 +555,7 @@ void maple_core1_main(void)
             break;
         case MAPLE_CMD_ALL_STATUS_REQ:
             if (to_vmu || to_rumble) break;            // sub-devices don't answer (raw gate)
-            out.header = MAPLE_HDR_ALL_STATUS; out.payload = allstat;
+            out.header = MAPLE_HDR_ALL_STATUS; out.payload = s_allstat;
             maple_tx_frame(&tx_ctx, &out);
             break;
         case MAPLE_CMD_GET_CONDITION:
