@@ -146,6 +146,24 @@ int main(void)
                         extern void uni_bt_start_scanning_and_autoconnect_safe(void);
                         uni_bt_start_scanning_and_autoconnect_safe();
                         puts("[cmd] BT scanning/pairing window forced open");
+                    } else if (strcmp(cmd, "P2M_VMU_DIR") == 0) {
+                        extern uint8_t *g_vmu_image_dbg;
+                        extern volatile uint32_t g_maple_blk_writes, g_maple_last_wspec;
+                        printf("[vmu] writes=%lu last_spec=%08lx\n",
+                               (unsigned long)g_maple_blk_writes, (unsigned long)g_maple_last_wspec);
+                        if (g_vmu_image_dbg) {
+                            const uint8_t *dir = g_vmu_image_dbg + 253 * 512;  // directory block
+                            for (int e = 0; e < 4; e++) {
+                                const uint8_t *d = dir + e * 32;
+                                printf("[vmu] dir%d: %02x %02x loc=%02x%02x name=%.12s\n",
+                                       e, d[0], d[1], d[3], d[2], (const char *)d + 4);
+                            }
+                            const uint8_t *fat = g_vmu_image_dbg + 254 * 512;
+                            int used = 0;
+                            for (int b = 0; b < 512; b += 2)
+                                if (!(fat[b] == 0xfc && fat[b+1] == 0xff)) used++;
+                            printf("[vmu] fat non-free entries=%d\n", used);
+                        }
                     } else if (strcmp(cmd, "P2M_REBOOT") == 0) {
                         puts("[cmd] rebooting");
                         sleep_ms(50);

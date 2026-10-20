@@ -49,6 +49,9 @@ volatile uint32_t g_maple_rx_words, g_maple_rx_resync;
 volatile uint32_t g_maple_cond_sent;   // controller condition replies actually transmitted
 volatile uint32_t g_maple_devreq_sent;  // DEVICE_STATUS replies actually transmitted
 volatile uint32_t g_maple_last_miss;    // latest unanswered GET_CONDITION: (func << 8) | dst
+volatile uint32_t g_maple_blk_writes;   // BLOCK_WRITE count (storage func)
+volatile uint32_t g_maple_last_wspec;   // raw spec word of the latest storage write
+uint8_t *g_vmu_image_dbg;               // debug window into the VMU image (set at core1 init)
 // @0x20001668: attached sub-peripheral mask (P2M_SUBPERIPH_*); also patches sender AP on TX
 uint8_t g_subperiph_mask;
 // @0x2000e970: RX frame buffer (0x400 bytes: len,src,dst,cmd + payload + xor)
@@ -428,6 +431,7 @@ void maple_core1_main(void)
     // keyboard event queue: 12-byte elements, depth 5, own spinlock
     queue_init_with_spinlock(&g_kbd_queue, 12, 5, spin_lock_claim_unused(true));
 
+    g_vmu_image_dbg = vmu_buf;
     puts("[core1] VMU init...");
     vmu_init(vmu_buf);
     puts("[core1] VMU ready");
@@ -645,6 +649,8 @@ cond_miss:;
             break;
         case MAPLE_CMD_BLOCK_WRITE:
             if (to_vmu && func == MAPLE_FUNC_STORAGE) {
+                g_maple_blk_writes++;
+                g_maple_last_wspec = *(const uint32_t *)(f + 8);
                 vmu_block_write(vmu_buf, *(const uint32_t *)(f + 8), f + 12, len - 2);
                 goto ack;
             } else if (to_vmu && func == MAPLE_FUNC_LCD) {
