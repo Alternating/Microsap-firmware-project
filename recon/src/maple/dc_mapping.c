@@ -69,7 +69,14 @@ static void build_standard(const uint8_t *gp)
     c[1] = (uint8_t)(btn >> 8);
     // triggers: rtrig (+2 within cond.buttons region = cond+6) and ltrig (+3 = cond+7)
     // TODO(verify @0x10000ebc): rtrig = LB-digital (gp[0x10]) full-scale, ltrig = RT analog gp[0x0e]
-    g_dc_controller_cond.rtrig = gp[0x10] ? 0xff : 0x00;
+    // Deliberate deviation from the original: also route the Xbox RT analog into the DC
+    // analog right trigger (racing games read it - e.g. Crazy Taxi gas). The original drove
+    // DC-R only from LB as digital full; LB still works, and RT's C-at-full-pull remains.
+    {
+        uint8_t r = gp[0x10] ? 0xff : 0x00;
+        if (gp[0x0d] > r) r = gp[0x0d];
+        g_dc_controller_cond.rtrig = r;
+    }
     g_dc_controller_cond.ltrig = gp[0x0e];
     g_dc_controller_cond.joyx  = snap_center(gp[0x11]);
     g_dc_controller_cond.joyy  = snap_center(gp[0x12]);
