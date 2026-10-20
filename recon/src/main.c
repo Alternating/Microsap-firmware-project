@@ -142,6 +142,10 @@ int main(void)
                         extern void uni_bt_del_keys_safe(void);
                         uni_bt_del_keys_safe();      // wipe all stored BT bonds (fresh-sync state)
                         puts("[cmd] BT bonds cleared - put the pad in sync mode to re-pair");
+                    } else if (strcmp(cmd, "P2M_BT_SCAN") == 0) {
+                        extern void uni_bt_start_scanning_and_autoconnect_safe(void);
+                        uni_bt_start_scanning_and_autoconnect_safe();
+                        puts("[cmd] BT scanning/pairing window forced open");
                     } else if (strcmp(cmd, "P2M_REBOOT") == 0) {
                         puts("[cmd] rebooting");
                         sleep_ms(50);
