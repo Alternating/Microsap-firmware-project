@@ -392,9 +392,14 @@ void maple_core1_main(void)
     static uint8_t vmu_buf[0x20600];     // auStack_20468 (original stack frame was 0x20630)
     static uint8_t vmu_buf2[0x20600];    // slot-2 VMU (SD-backed); enabled only when SD mounts
     uint8_t settings[256];               // auStack_20568
-    // ALL_STATUS payload: devinfo (112B) + zeroed 80B extension (no version text in the
-    // original binary; zeros are safe — previously this was an UNINITIALIZED stack buffer).
+    // ALL_STATUS payload: devinfo (112B) + 80B free-device-status extension.
     static uint8_t s_allstat[192];
+    // Real Dreamcast controllers answer GET_ALL_STATUS with this 80-byte "free device status"
+    // version string; cluoma's firmware omitted it (binary has no such text). Some games
+    // (e.g. Outtrigger) require the full identity before accepting the pad. Source: MaplePad
+    // (see recon/notes/device-identity-maplepad.md). Exactly 80 bytes, space-padded.
+    static const char g_free_device_status[80] =
+        "Version 1.010,1998/09/28,315-6211-AB   ,Analog Module : The 4th Edition.5/8  +DF";
 
     // (core0 is the lockout victim — set up in main before launch — so core1 can pause it
     // around flash writes; core1 itself is not a victim.)
@@ -589,7 +594,16 @@ void maple_core1_main(void)
             // (dst bit0 + mask bit0); header 0x06000130 has src AP 0x01 = slot 1. The main
             // device does not answer ALL_STATUS. (We previously had this exactly backwards —
             // the console interrogates the VMU with ALL_STATUS and silence drops the port.)
-            if (vp) {
+            if (!(dst & 3)) {
+                // Controller (main device) all-info: 112B device info + 80B free-device-status
+                // version string. The original firmware did NOT answer ALL_STATUS for the main
+                // device; real controllers do, and some games need it (MaplePad reference).
+                memcpy(s_allstat, g_devinfo_payload, 112);
+                memcpy(s_allstat + 112, g_free_device_status, 80);
+                out.header = MAPLE_HDR_ALL_STATUS_MAIN;  // 0x06002030, src 0x20
+                out.payload = s_allstat;
+                maple_tx_frame(&tx_ctx, &out);
+            } else if (vp) {
                 memcpy(s_allstat, vmu_devinfo_body, 112);
                 memset(s_allstat + 112, 0, 80);
                 out.header = VMU_HDR(MAPLE_HDR_ALL_STATUS, vsrc); out.payload = s_allstat;
