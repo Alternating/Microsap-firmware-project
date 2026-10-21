@@ -1,8 +1,8 @@
 diff --git a/src/components/bluepad32/bt/uni_bt_le.c b/src/components/bluepad32/bt/uni_bt_le.c
-index 131f429..146e15f 100644
+index 131f429..48d7a64 100644
 --- a/src/components/bluepad32/bt/uni_bt_le.c
 +++ b/src/components/bluepad32/bt/uni_bt_le.c
-@@ -316,6 +316,18 @@ static void uni_hids_client_packet_handler(uint8_t packet_type, uint16_t channel
+@@ -316,10 +316,29 @@ static void uni_hids_client_packet_handler(uint8_t packet_type, uint16_t channel
                          logi("Client notifications enabled for for hids_cid=%d\n", hids_cid);
  #endif
  
@@ -21,3 +21,14 @@ index 131f429..146e15f 100644
                      uni_hid_device_guess_controller_type_from_pid_vid(device);
                      uni_hid_device_connect(device);
                      uni_hid_device_set_ready(device);
+ 
++                    // Pico2Maple local patch: request a fast BLE connection interval for low
++                    // input latency. Cheap BLE gamepads negotiate a slow interval (observed
++                    // ~75ms -> ~13 reports/s, a felt delay). Ask for 7.5-15ms, slave latency 0,
++                    // 2s supervision timeout. The peripheral may accept or ignore the request.
++                    if (device->conn.handle != HCI_CON_HANDLE_INVALID)
++                        gap_request_connection_parameter_update(device->conn.handle, 6, 12, 0, 200);
++
+                     resume_scanning_hint();
+                     break;
+                 default:
