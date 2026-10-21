@@ -62,6 +62,7 @@ void vmu_media_info_build(vmu_state_t *v);                                      
 int  vmu_load_bank_image(vmu_state_t *v, unsigned bank);                        // 0x10002354
 void vmu_format_bank(vmu_state_t *v);                                           // 0x100022d0
 int  vmu_init(vmu_state_t *v);                                                  // 0x10002568
+int  vmu_init_slot2(vmu_state_t *v);   // second (SD-backed) VMU, controller slot 2
 int  vmu_block_read(vmu_state_t *v, uint32_t spec);                             // 0x10002748
 int  vmu_flush_dirty(vmu_state_t *v);                                           // 0x1000278c
 int  vmu_block_write(vmu_state_t *v, uint32_t spec, const uint32_t *src, int words); // 0x100028a4

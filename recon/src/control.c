@@ -43,7 +43,7 @@ void control_init(void)
     // A previously-compiled map may also live in the settings blob (field 2).
     settings_read_field(SETTINGS_FIELD_MAPPING, g_custom_map, use_sd);
     if (use_sd)
-        cfg_load_custom_mapping(g_custom_map, "pico2maple_controller_map.cfg", true);
+        cfg_load_custom_mapping(g_custom_map, "microsap_controller_map.cfg", true);
 
     g_active_layout   = 3;                 // standard; layout is not persisted
     g_devinfo_rebuild = g_active_layout;   // force an initial device-info build on core1

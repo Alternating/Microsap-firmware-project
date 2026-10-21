@@ -31,7 +31,7 @@ static bool blob_valid(const uint8_t *b)
 static void load_raw(uint8_t *dst, bool use_sd, bool *ok)
 {
     if (use_sd && g_storage_status == 2) {
-        *ok = sd_read_file("pico2maple_settings.bin", dst, 0x100) == 0;
+        *ok = sd_read_file("microsap_settings.bin", dst, 0x100) == 0;
     } else {
         memcpy(dst, (const uint8_t *)(XIP_BASE + SETTINGS_FLASH_OFFSET), 0x100);
         *ok = true;
@@ -60,7 +60,7 @@ bool settings_save(p2m_settings_t *s, bool use_sd)
 {
     s->raw[0xff] = settings_checksum(s->raw);
     if (use_sd && g_storage_status == 2)
-        return sd_write_file("pico2maple_settings.bin", s->raw, 0x100, 0) == 0;
+        return sd_write_file("microsap_settings.bin", s->raw, 0x100, 0) == 0;
     return flash_safe_execute(settings_flash_op, s->raw, UINT32_MAX) == PICO_OK;
 }
 

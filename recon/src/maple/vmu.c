@@ -178,6 +178,29 @@ int vmu_init(vmu_state_t *v)
     return 0;
 }
 
+// Second VMU instance, always SD-card-backed (slot 2 of the controller). Uses bank 2 so its
+// backing file differs from slot 1. Returns -1 if SD isn't usable (slot 2 then stays absent).
+int vmu_init_slot2(vmu_state_t *v)
+{
+    v->storage_mode = 1;
+    if (vmu_load_bank_image(v, 2)) {
+        // Fresh card: vmu02.bin doesn't exist yet, so the load failed before formatting.
+        // Format (mode 1 writes the file + root template), then load the clean image.
+        v->bank = 2;
+        vmu_format_bank(v);
+        if (vmu_load_bank_image(v, 2))
+            return -1;
+    }
+    fill_devinfo_body(v->devinfo_body);
+    memcpy(v->mediainfo_tmpl, "Microsap SD VMU2", 16);
+    memset(v->staging, 0, sizeof v->staging);
+    v->lcd_info[0]=0; v->lcd_info[1]=0; v->lcd_info[2]=0; v->lcd_info[3]=4;
+    uint32_t lcd = 0x02101f2f; memcpy(v->lcd_info + 4, &lcd, 4);
+    memset(v->gameid, 0, sizeof v->gameid);
+    memset(v->gameid_aux, 0, sizeof v->gameid_aux);
+    return 0;
+}
+
 // from 0x10002748
 int vmu_block_read(vmu_state_t *v, uint32_t spec)
 {

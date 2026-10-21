@@ -211,8 +211,8 @@ int cfg_load_custom_mapping(uint8_t *mapping, const char *cfg_name, bool create_
     int r = sd_read_lines(cfg_name, linebuf, sizeof linebuf, cfg_line_parse, mapping);
     if (r == -2) {
         if (create_sample &&
-            sd_file_exists("pico2maple_controller_map_sample.cfg") == -2)
-            sd_write_file("pico2maple_controller_map_sample.cfg",
+            sd_file_exists("microsap_controller_map_sample.cfg") == -2)
+            sd_write_file("microsap_controller_map_sample.cfg",
                           g_cfg_sample_text, strlen(g_cfg_sample_text), 0);
         return -1;
     }

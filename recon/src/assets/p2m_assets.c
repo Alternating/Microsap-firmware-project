@@ -257,7 +257,7 @@ const uint8_t g_icon_attach_off_b[0x40] = {
 const char g_cfg_sample_text[] =
     "# THIS IS A SAMPLE PICO2MAPLE CUSTOM CONTROLLER MAPPING CONFIG FILE.\n"
     "# TO ENABLE YOUR CUSTOM MAPPING, REMOVE \"_sameple\" FROM THE FILENAME.\n"
-    "# CUSTOM CONTROLLER MAPPINGS WILL ONLY BE LOADED FROM THE FILE \"pico2maple_controller_map.cfg\"\n"
+    "# CUSTOM CONTROLLER MAPPINGS WILL ONLY BE LOADED FROM THE FILE \"microsap_controller_map.cfg\"\n"
     "#\n"
     "# A mapping config file is a list of mappings, one per line. Hash symbols (#) are used for comments.\n"
     "# Each line should be in the format: <input>: <output>\n"

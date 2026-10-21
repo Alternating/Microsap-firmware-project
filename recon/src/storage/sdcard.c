@@ -24,10 +24,10 @@ int sd_ensure_dirs(void)
                              spin_lock_claim_unused(true));
     bool ok = f_mount(&g_fs, "", 1) == FR_OK;
     // original accepts FR_OK or FR_EXIST on each mkdir ((res & 0xf7) == 0, FR_EXIST == 8)
-    ok = ok && ((f_mkdir("/pico2maple") & 0xf7) == 0);
-    ok = ok && ((f_mkdir("/pico2maple/internal") & 0xf7) == 0);
-    ok = ok && ((f_mkdir("/pico2maple/gameid") & 0xf7) == 0);
-    ok = ok && (f_chdir("/pico2maple") == FR_OK);
+    ok = ok && ((f_mkdir("/Microsap") & 0xf7) == 0);
+    ok = ok && ((f_mkdir("/Microsap/internal") & 0xf7) == 0);
+    ok = ok && ((f_mkdir("/Microsap/gameid") & 0xf7) == 0);
+    ok = ok && (f_chdir("/Microsap") == FR_OK);
     g_storage_status = ok ? 2 : 1;
     return ok ? 0 : -1;
 }
