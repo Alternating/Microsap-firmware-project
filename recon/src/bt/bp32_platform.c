@@ -75,8 +75,11 @@ static uni_error_t p2m_on_device_discovered(bd_addr_t addr, const char *name,
                                             uint16_t cod, uint8_t rssi)
 {
     (void)addr; (void)name; (void)rssi;
-    // Original p2m_bp32_on_device_discovered (0x100082e0): accept only gamepad/joystick CoD.
-    const uint32_t MASK = 0x48;   // (cod & 0x48)==0 -> reject (UNI_ERROR_IGNORE_DEVICE=5)
+    // Accept gamepad/joystick/keyboard Class-of-Device peripherals. The original (0x100082e0)
+    // used 0x48 (gamepad 0x08 | keyboard 0x40) which REJECTED joystick-class (0x04) controllers
+    // — e.g. the CECHZC2U-type BLE gamepad advertises CoD minor 0x04 (joystick) and was
+    // discovered every inquiry but never connected. Add the joystick bit so these pads connect.
+    const uint32_t MASK = 0x4c;   // gamepad 0x08 | joystick 0x04 | keyboard 0x40
     return (cod & MASK) ? UNI_ERROR_SUCCESS : UNI_ERROR_IGNORE_DEVICE;
 }
 
