@@ -13,6 +13,7 @@ runs on an RP2350 / Raspberry Pi Pico 2 W. Personal use only — not for sale or
 - [How it works](#how-it-works)
 - [Building](#building)
 - [Feature status](#feature-status)
+- [Known controllers](#known-controllers)
 - [Development history / key fixes](#development-history--key-fixes)
 - [Developer workflow, diagnostics & remaining work](#developer-workflow-diagnostics--remaining-work)
 - [Attribution & credits](#attribution--credits)
@@ -329,6 +330,34 @@ If BTstack path conflicts occur or bluepad32 submodule updates are incomplete, v
 3. `CYW43_ENABLE_BLUETOOTH=1` compile flag is set (required for BT firmware load)
 
 If builds fail on old pico-sdk, verify you are using **2.2.0 with all submodules** — earlier versions bundle an incompatible BTstack and lack ARM-S (RP2350) support.
+
+## Known controllers
+
+Controllers tested against this firmware, with their quirks. Bluetooth pads go through
+bluepad32; USB pads through TinyUSB host (HID) or tusb_xinput (XInput).
+
+| Controller | Link | Status | Notes |
+|---|---|---|---|
+| Xbox Wireless Controller | BLE | Working, verified | Full standard-layout mapping verified bit-for-bit (`recon/notes/verified-button-map.md`). Fast link (~110–125 reports/s). Needed the BLE descriptor-at-setup patch to avoid a connected-but-silent stall. |
+| "CECHZC2U PS3 clone" (generic BLE gamepad, VID `1949:0402`) | BLE | Working, but laggy | Not actually a DualShock 3 — a generic BLE HID gamepad advertising Class-of-Device **joystick** (`0x04`). Needed the joystick-CoD acceptance fix to connect at all. Streams at only ~15 reports/s and **ignores** the host's connection-interval request, so it has inherent input lag we cannot tune out (a limitation of this cheap pad, not the firmware). Details: `recon/notes/controller-cechzc2u-ble.md`. |
+| Sony DualShock 4 / DualSense | USB | Parsed | `usb_host.c` VID/PID branch; report offsets marked `TODO(verify)` on hardware. |
+| Nintendo Switch Pro | USB | Parsed | `usb_host.c`; offsets `TODO(verify)`. |
+| Generic USB HID gamepad | USB | Fallback parse | Generic descriptor fallback in `usb_host.c`. |
+| Xbox wired (XInput) | USB | Built | `usb/xinput.c` via tusb_xinput; not yet hardware-verified. |
+
+### Lessons for adding controllers
+
+- **Bluetooth Class-of-Device filter.** `p2m_on_device_discovered` (`bt/bp32_platform.c`) must
+  accept the pad's CoD minor class or it is discovered-but-never-connected. The mask is `0x4c`
+  (gamepad `0x08` | joystick `0x04` | keyboard `0x40`); widen it if a controller advertises a
+  different class.
+- **BLE input latency = connection interval.** The firmware requests a fast 7.5–15 ms interval
+  at connect (local bluepad32 patch), but a peripheral may ignore it. Measure the real rate with
+  the debug build's `bt N/s` / `age=` heartbeat fields during continuous stick motion: a healthy
+  pad sustains 60–125/s; a slow one that ignores the request sits near 15/s.
+- **"PS3 clone" is a label, not a protocol.** Many cheap pads sold as DS3 clones are plain BLE
+  HID gamepads with borrowed VID/PIDs — analyze the actual HID report descriptor (e.g. on a
+  Linux host via `usbhid-dump` / sysfs) before assuming DualShock 3 behavior.
 
 ## Development history / key fixes
 
