@@ -110,9 +110,10 @@ int main(void)
             if (!gp) gp = xinput_get_gamepad();
             if (!gp) gp = bp32_get_gamepad();
             const dc_controller_cond_t *c = &g_dc_controller_cond;
-            printf("[hb] usb_pad=%d xpad=%d bt_pad=%d layout=%d | DC rxw=%lu rsync=%lu frames=%lu "
+            extern uint8_t g_storage_status;
+            printf("[hb] sd=%u usb_pad=%d xpad=%d bt_pad=%d layout=%d | DC rxw=%lu rsync=%lu frames=%lu "
                    "devreq=%lu/%lu cond=%lu/%lu miss=%06lx%s | bt %lu/s age=%lums | out: btn=%04x lt=%02x rt=%02x stick=%02x,%02x s2=%02x,%02x\n",
-                   usb_pad_connected(), xinput_pad_connected(), bp32_pad_connected(), g_active_layout,
+                   g_storage_status, usb_pad_connected(), xinput_pad_connected(), bp32_pad_connected(), g_active_layout,
                    (unsigned long)g_maple_rx_words, (unsigned long)g_maple_rx_resync,
                    (unsigned long)g_maple_frames, (unsigned long)g_maple_dev_req,
                    (unsigned long)g_maple_devreq_sent,
