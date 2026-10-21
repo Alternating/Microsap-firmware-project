@@ -7,6 +7,7 @@
 #include "pico/util/queue.h"
 #include "pico/multicore.h"
 #include "hardware/flash.h"
+#include "pico/flash.h"
 #include "hardware/sync.h"
 #include "vmu.h"
 
@@ -130,15 +131,17 @@ int vmu_load_bank_image(vmu_state_t *v, unsigned bank)
     bool valid = true;
     for (int i = 0; i < 16; i++)
         if (v->image[0x1FE00 + i] != 0x55) { valid = false; break; }
+    v->dirty_mask = 0;
     if (!valid) {
         vmu_format_bank(v);
-        // mode 0: vmu_format_bank already populated the RAM image (no flash re-read).
+        // mode 0: the format populated the RAM image; mark every page dirty so the idle
+        // flush path seeds the formatted card into permanent storage.
         if (bank == 10)                { if (gameid_vmu_load(v)) return 0xfe; }
         else if (v->storage_mode == 1) { if (vmu_bank_file_load(v)) return 0xfe; }
+        else                           v->dirty_mask = 0xFFFFFFFFu;
     }
 
     vmu_media_info_build(v);
-    v->dirty_mask = 0;
     return 0;
 }
 
@@ -193,10 +196,19 @@ int vmu_flush_dirty(vmu_state_t *v)
     unsigned page = (unsigned)__builtin_ctz(mask);
 
     if (v->storage_mode == 0) {
-        // Internal VMU persistence is deferred (flashing from core1 while core0 runs from XIP
-        // faults the board). For now the internal VMU is RAM-only — it works but saves don't
-        // survive a power cycle. SD-backed VMU (mode 1) does persist (queued to core0 below).
-        // TODO: persist via flash_safe_execute() so it survives reboots.
+        // Persist the dirty 4KB page to the internal bank region. flash_safe_execute parks
+        // the other core for the duration (both cores opted in at boot), so this is the
+        // sanctioned cross-core path. Called only in idle windows (frames_lo > 100).
+        struct pageop { uint32_t off; const uint8_t *src; } op = {
+            INTERNAL_BANKS_FLASH_OFF + (uint32_t)v->bank * 0x20000 + page * 0x1000,
+            &v->image[page * 0x1000]
+        };
+        void do_page(void *p) {
+            struct pageop *o = (struct pageop *)p;
+            flash_range_erase(o->off, 0x1000);
+            flash_range_program(o->off, o->src, 0x1000);
+        }
+        flash_safe_execute(do_page, &op, UINT32_MAX);
         v->dirty_mask &= ~(1u << page);
     } else if (v->storage_mode == 1) {
         static sd_write_msg_t m;                 // 4KB+ message; original builds on stack
