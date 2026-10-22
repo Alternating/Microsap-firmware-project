@@ -13,6 +13,7 @@
 #include "hardware/i2c.h"
 #include "hardware/dma.h"
 #include "hardware/gpio.h"
+#include "hardware/sync.h"
 #include "pico/time.h"
 #include "oled.h"
 #include "../assets/p2m_assets.h"
@@ -31,7 +32,12 @@ extern uint8_t g_oled_scl_pin;      // GPIO5
 
 static uint8_t *g_oled_fb;          // @*DAT_10002e80 / *DAT_10002ca8
 static int      g_oled_dma_ch;      // @*DAT_100022cc-ish
-static bool     g_oled_enabled;
+static volatile bool g_oled_enabled;   // set by core1 at the end of oled_init; read by core0
+
+// The DMA push's transfer buffer, see tx_start.
+#define TX_CMDS  7
+#define TX_LEN   (TX_CMDS + 1 + 1024)
+static uint16_t s_tx[TX_LEN];
 
 // Store one display byte into framebuffer entry `index` (low byte = data).
 static inline void fb_put(unsigned index, uint8_t v)
@@ -85,8 +91,13 @@ static void oled_dma_init(void)
     channel_config_set_dreq(&c, i2c_get_dreq(OLED_I2C, true));
     dma_channel_configure(g_oled_dma_ch, &c,
                           &i2c_get_hw(OLED_I2C)->data_cmd,   // write: IC_DATA_CMD
-                          (uint16_t *)(g_oled_fb + FB_DATA_OFF),
-                          0, false);
+                          s_tx, 0, false);                   // read: set by each push
+
+    // The DMA stream carries no address: the target is the panel's, set once here.
+    i2c_hw_t *hw = i2c_get_hw(OLED_I2C);
+    hw->enable = 0;
+    hw->tar = SSD1306_ADDR;
+    hw->enable = 1;
 }
 
 // from 0x10002d64 — panel bring-up. `rotated` flips COM/segment scan (the "rotated_screen"
@@ -138,31 +149,97 @@ void oled_init(bool rotated)
     // from 0x10002d64 tail: FUN_10009ec8(alarm, ..., oled_refresh_cb)   // TODO(verify period)
 }
 
-// Push the current framebuffer to the panel over blocking I2C. The framebuffer stores each
-// display byte as a uint16_t (low byte = pixel data); extract the low bytes and send the full
-// 128x64 frame. Simpler and more reliable than the DMA path for now.  (replaces 0x10002eb8)
-void oled_present(void)
+// One whole-frame transfer as IC_DATA_CMD entries, so a DMA channel can stream it with no CPU:
+// a command transaction (control byte 0x00, the full-screen column and page window, STOP), then a
+// data transaction (control byte 0x40, the 1024 pixel bytes, STOP). The controller starts the
+// second transaction by itself after the first one's STOP.
+static const uint16_t s_tx_head[TX_CMDS + 1] = {
+    0x00, 0x21, 0x00, 0x7F, 0x22, 0x00, 0x07 | I2C_STOP_FLAG, 0x40,
+};
+static uint64_t s_tx_started_us;
+static bool     s_tx_aborting;      // a wedged push is being aborted by the controller
+
+// A push owns the bus while the DMA is feeding it or bytes are still in the FIFO or on the wire.
+static bool tx_busy(const i2c_hw_t *hw)
 {
-    if (!g_oled_fb) return;
-    static uint8_t line[1024];
-    const uint16_t *e = (const uint16_t *)(g_oled_fb + FB_DATA_OFF);
-    for (int i = 0; i < 1024; i++) line[i] = (uint8_t)e[i];
-    ssd1306_send(line, 1024, 0, 0x7F, 0, 7);
+    return dma_channel_is_busy(g_oled_dma_ch) || !(hw->status & I2C_IC_STATUS_TFE_BITS)
+        || (hw->status & I2C_IC_STATUS_ACTIVITY_BITS);
 }
 
-// from 0x10002eb8 — present the framebuffer (was a DMA kick; now a blocking push).
-void oled_refresh_kick(void) { oled_present(); }
+// Copy the framebuffer into the transfer buffer and start the DMA; returns at once. The copy
+// lets drawing go on during the ~11.5 ms the frame takes on the wire.
+static void tx_start(i2c_hw_t *hw)
+{
+    // A NAK (panel missing or glitched) holds the TX FIFO flushed until the abort is cleared.
+    if (hw->tx_abrt_source) (void)hw->clr_tx_abrt;
+
+    memcpy(s_tx, s_tx_head, sizeof s_tx_head);
+    const uint16_t *e = (const uint16_t *)(g_oled_fb + FB_DATA_OFF);
+    for (int i = 0; i < 1024; i++) s_tx[TX_CMDS + 1 + i] = (uint8_t)e[i];
+    s_tx[TX_LEN - 1] |= I2C_STOP_FLAG;
+
+    s_tx_started_us = time_us_64();
+    dma_channel_transfer_from_buffer_now(g_oled_dma_ch, s_tx, TX_LEN);
+}
+
+// from 0x10002eb8 — in the original a DMA kick: the caller never waited for the panel.
+// The kick's callers include core1's Maple reply path (VMU LCD and block writes, the flush
+// before a GET_CONDITION reply), where the budget is ~100 us. So a kick only marks the frame
+// stale and core0's loop starts the DMA push (oled_service). That also makes core0 the only
+// user of the I2C bus and of the transfer buffer, which core0's layout toggle and core1 used
+// to share. A frame takes ~11.5 ms on the wire at 800 kHz; neither core waits for it.
+static volatile bool s_present_pending;
+void oled_refresh_kick(void)
+{
+    __dmb();                     // framebuffer writes before the flag
+    s_present_pending = true;
+}
+
+// Core0 main loop: start a push if a kick is pending and the bus is free. A kick during the push
+// re-arms it. Never waits on the panel.
+void oled_service(void)
+{
+    if (!g_oled_enabled) return;
+    i2c_hw_t *hw = i2c_get_hw(OLED_I2C);
+
+    if (s_tx_aborting) {
+        if (hw->enable & I2C_IC_ENABLE_ABORT_BITS) return;   // controller still aborting
+        (void)hw->clr_tx_abrt;
+        s_tx_aborting = false;
+    }
+    if (tx_busy(hw)) {
+        // A frame takes ~12 ms. One still on the bus after 100 ms is wedged (the clock held low
+        // mid-frame). Stopping the DMA alone would leave the data transaction open, and the next
+        // frame's window commands would land as pixels; the controller's ABORT sends a STOP and
+        // flushes the FIFO, so the next push starts a clean transaction. The frame is repainted.
+        if (time_us_64() - s_tx_started_us < 100000) return;
+        dma_channel_abort(g_oled_dma_ch);
+        hw->enable |= I2C_IC_ENABLE_ABORT_BITS;
+        s_tx_aborting = true;
+        s_present_pending = true;
+        return;
+    }
+    if (!s_present_pending) return;
+    s_present_pending = false;
+    __dmb();
+    tx_start(hw);
+}
 
 // from 0x10002ef4 — upscale the 48x32 1bpp VMU LCD into the framebuffer's main area.
 // Functional reconstruction: the original is a dense bit-packing loop. The VMU LCD is 48x32,
 // 6 bytes/row (MSB = leftmost pixel). Here each VMU pixel is written as an SSD1306 page bit.
-// TODO(verify @0x10002ef4): exact scale factor, orientation and target offset against hardware.
+// The console writes VMU art already turned 180°, because a VMU sits upside down in the
+// controller; the framebuffer here is upright (the panel's own flip is oled_init's), so the
+// frame is read turned back: pixel (row, col) comes from (31 - row, 47 - col). Bench, 2026-10-19:
+// without it the game's art showed upside down.
+// TODO(verify @0x10002ef4): exact scale factor and target offset against hardware.
 void vmu_lcd_upscale(const uint8_t *lcd_fb)
 {
     if (!g_oled_fb) return;
     for (int row = 0; row < 32; row++) {
         for (int col = 0; col < 48; col++) {
-            int bit = (lcd_fb[row * 6 + (col >> 3)] >> (7 - (col & 7))) & 1;
+            int sr = 31 - row, sc = 47 - col;
+            int bit = (lcd_fb[sr * 6 + (sc >> 3)] >> (7 - (sc & 7))) & 1;
             unsigned page = (unsigned)row >> 3;          // 32 rows -> 4 pages
             unsigned x = (unsigned)col;
             uint16_t *e = &((uint16_t *)(g_oled_fb + FB_DATA_OFF))[page * 128 + x];

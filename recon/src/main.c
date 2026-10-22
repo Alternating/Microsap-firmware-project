@@ -33,6 +33,7 @@ extern void dc_set_device_mode(int func, int sub);    // 0x10001494 (announce kb
 extern void dc_reset_device_mode(void);               // 0x1000151c
 extern void oled_draw_layout_icon(unsigned layout);   // 0x10003800
 extern void oled_refresh_kick(void);                  // 0x10002eb8
+extern void oled_service(void);                       // core0 owns the OLED push (oled.c)
 
 // Shared flags/globals (addresses from the 0x10000308 literal pool).
 extern volatile uint8_t g_core1_ready;   // @*DAT_100005e0 (set by core1 after Maple init)
@@ -91,6 +92,7 @@ int main(void)
         usb_host_task();                  // 0x1000726c
         controller_poll();                // 0x100002b0 (reads pads, runs custom+layout mapping)
         rumble_tick();                    // 0x10007c70 (forward DC vibration to USB/BT pad)
+        oled_service();                   // present a frame core1 or the layout toggle kicked
 
         // heartbeat every ~3s so the log shows the loop is alive + current status
         if (time_us_64() - hb > 3000000) {
