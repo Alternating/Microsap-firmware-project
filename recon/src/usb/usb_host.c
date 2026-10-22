@@ -219,6 +219,20 @@ bool usb_pad_connected(void)
     return false;
 }
 
+// Bitmask of connected USB HID device kinds: bit0 = keyboard, bit1 = mouse, bit2 = gamepad.
+// Used by the OLED connected-device indicator to distinguish keyboard/mouse/pad.
+unsigned usb_host_kinds(void)
+{
+    unsigned m = 0;
+    for (int i = 0; i < MAX_INSTANCES; i++)
+        if (s_devs[i].used) {
+            if      (s_devs[i].kind == DEV_KEYBOARD) m |= 1u;
+            else if (s_devs[i].kind == DEV_MOUSE)    m |= 2u;
+            else if (s_devs[i].kind == DEV_GAMEPAD)  m |= 4u;
+        }
+    return m;
+}
+
 const p2m_gamepad_t *usb_get_gamepad(void) { return s_has_gamepad ? &s_gamepad : NULL; }
 
 void usb_get_keyboard(uint8_t out[8]) { memcpy(out, s_kb, 8); }

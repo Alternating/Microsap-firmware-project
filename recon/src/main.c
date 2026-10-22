@@ -15,6 +15,7 @@
 #include "control.h"
 #include "usb/usb_host.h"
 #include "bt/bp32_platform.h"
+#include "oled/oled.h"              // OLED_DEV_* + oled_draw_device_icon
 
 // cross-module entry points
 extern void maple_core1_main(void);                 // 0x10000298 (runs on core1)
@@ -93,6 +94,21 @@ int main(void)
         controller_poll();                // 0x100002b0 (reads pads, runs custom+layout mapping)
         rumble_tick();                    // 0x10007c70 (forward DC vibration to USB/BT pad)
         oled_service();                   // present a frame core1 or the layout toggle kicked
+
+        // connected-device indicator: show the active input source (BT / pad / kbd / mouse)
+        // in the OLED top-middle band; only redraw when it changes.
+        {
+            static int last_dev = -1;
+            int dev = OLED_DEV_NONE;
+            if (bp32_pad_connected())                   dev = OLED_DEV_BT;
+            else {
+                unsigned k = usb_host_kinds();
+                if (xinput_pad_connected() || (k & 4u)) dev = OLED_DEV_PAD;
+                else if (k & 1u)                        dev = OLED_DEV_KBD;
+                else if (k & 2u)                        dev = OLED_DEV_MOUSE;
+            }
+            if (dev != last_dev) { last_dev = dev; oled_draw_device_icon(dev); }
+        }
 
         // heartbeat every ~3s so the log shows the loop is alive + current status
         if (time_us_64() - hb > 3000000) {

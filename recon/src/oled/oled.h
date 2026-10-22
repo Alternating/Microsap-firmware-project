@@ -23,4 +23,9 @@ void oled_draw_storage_icon(bool internal);   // from 0x10003544 (internal flash
 void oled_draw_layout_icon(unsigned layout);  // from 0x10003800
 void oled_draw_attached_icon(bool attached);  // from 0x10003938
 
+// Connected-input-device indicator (Path B addition): draw an icon for the active input source
+// in the top-middle gap (pages 0/1, cols 56..79). OLED_DEV_NONE clears it.
+enum { OLED_DEV_NONE = 0, OLED_DEV_BT, OLED_DEV_PAD, OLED_DEV_KBD, OLED_DEV_MOUSE };
+void oled_draw_device_icon(int type);
+
 #endif

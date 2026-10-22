@@ -318,3 +318,30 @@ void oled_draw_attached_icon(bool attached)
         fb_blit(0x1CC, g_icon_attach_off_b, 0x40);
     }
 }
+
+// Path B addition — connected-input-device indicator. Draws a 24x16 icon for the active input
+// source in the free top-middle band (pages 0/1, cols 56..79), between the VMU art (cols 0..47)
+// and the right-column "VMU"/bank chrome (col 95+). Each icon is 24B page0 + 24B page1.
+// Called from core0 only, so it never races core1's VMU-art/bank writes (disjoint regions).
+#define DEVICON_P0_OFF 0x7E     // page0 col56:  FB_DATA_OFF + 2*(0*128 + 56)
+#define DEVICON_P1_OFF 0x17E    // page1 col56:  FB_DATA_OFF + 2*(1*128 + 56)
+void oled_draw_device_icon(int type)
+{
+    if (!g_oled_fb) return;
+    const uint8_t *g;
+    switch (type) {
+    case OLED_DEV_BT:    g = g_icon_dev_bt;    break;
+    case OLED_DEV_PAD:   g = g_icon_dev_pad;   break;
+    case OLED_DEV_KBD:   g = g_icon_dev_kbd;   break;
+    case OLED_DEV_MOUSE: g = g_icon_dev_mouse; break;
+    default:             g = NULL;             break;   // OLED_DEV_NONE -> clear the band
+    }
+    if (g) {
+        fb_blit(DEVICON_P0_OFF, g,      24);
+        fb_blit(DEVICON_P1_OFF, g + 24, 24);
+    } else {
+        memset(g_oled_fb + DEVICON_P0_OFF, 0, 24 * 2);   // 24 uint16_t entries per page strip
+        memset(g_oled_fb + DEVICON_P1_OFF, 0, 24 * 2);
+    }
+    oled_refresh_kick();
+}

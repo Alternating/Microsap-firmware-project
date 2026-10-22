@@ -11,6 +11,7 @@
 void usb_host_init(void);
 void usb_host_task(void);                 // poll once per main-loop iteration (non-blocking)
 bool usb_pad_connected(void);             // any HID device mounted
+unsigned usb_host_kinds(void);            // bitmask: bit0 keyboard, bit1 mouse, bit2 gamepad
 
 const p2m_gamepad_t *usb_get_gamepad(void);   // latest merged pad state, or NULL if none
 void usb_get_keyboard(uint8_t out[8]);        // boot-keyboard report: mod,res,6 keycodes
