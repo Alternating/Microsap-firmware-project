@@ -31,12 +31,12 @@ extern const uint8_t g_icon_attach_on_a[0x20];  // device-attached icon on strip
 extern const uint8_t g_icon_attach_off_a[0x20];  // device-attached icon off strip a (DAT_100039ac)
 extern const uint8_t g_icon_attach_off_b[0x40];  // device-attached icon off strip b (DAT_100039b0)
 
-// connected-input-device icons (Path B addition; 24x16, 24B page0 + 24B page1) — see
-// tools/gen_device_icons.py and oled_draw_device_icon.
-extern const uint8_t g_icon_dev_bt[48];     // Bluetooth pad
-extern const uint8_t g_icon_dev_pad[48];    // USB/wired gamepad
-extern const uint8_t g_icon_dev_kbd[48];    // keyboard
-extern const uint8_t g_icon_dev_mouse[48];  // mouse
+// connected-input-device icons (Path B addition; 32x16, 32B page0 + 32B page1) — right status
+// column pages 4/5. See tools/gen_device_icons.py and oled_draw_device_icon.
+extern const uint8_t g_icon_dev_bt[64];     // Bluetooth pad — text "BT"
+extern const uint8_t g_icon_dev_pad[64];    // USB/wired gamepad
+extern const uint8_t g_icon_dev_kbd[64];    // keyboard
+extern const uint8_t g_icon_dev_mouse[64];  // mouse
 
 extern const char g_cfg_sample_text[];  // embedded sample cfg (@0x100a16f4)
 

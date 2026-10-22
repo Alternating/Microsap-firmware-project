@@ -319,12 +319,14 @@ void oled_draw_attached_icon(bool attached)
     }
 }
 
-// Path B addition — connected-input-device indicator. Draws a 24x16 icon for the active input
-// source in the free top-middle band (pages 0/1, cols 56..79), between the VMU art (cols 0..47)
-// and the right-column "VMU"/bank chrome (col 95+). Each icon is 24B page0 + 24B page1.
-// Called from core0 only, so it never races core1's VMU-art/bank writes (disjoint regions).
-#define DEVICON_P0_OFF 0x7E     // page0 col56:  FB_DATA_OFF + 2*(0*128 + 56)
-#define DEVICON_P1_OFF 0x17E    // page1 col56:  FB_DATA_OFF + 2*(1*128 + 56)
+// Path B addition — connected-input-device indicator. Matches the original pico2maple layout:
+// the right-hand status column reads VMU (pages 0/1) / bank# (2/3) / DEVICE (4/5) / SD (6/7).
+// We draw a 32x16 icon for the active input source into the pages-4/5 slot (cols 95..126) —
+// the slot the dormant layout icon targeted (its only caller is dead code: main's mode-button
+// branch, disabled on the floating pin). Called from core0 only, so it never races core1's
+// VMU-art/bank/storage writes. Each icon is 32B page0 + 32B page1.
+#define DEVICON_P0_OFF 0x4CC    // page4 col95:  FB_DATA_OFF + 2*(4*128 + 95)
+#define DEVICON_P1_OFF 0x5CC    // page5 col95:  FB_DATA_OFF + 2*(5*128 + 95)
 void oled_draw_device_icon(int type)
 {
     if (!g_oled_fb) return;
@@ -334,14 +336,14 @@ void oled_draw_device_icon(int type)
     case OLED_DEV_PAD:   g = g_icon_dev_pad;   break;
     case OLED_DEV_KBD:   g = g_icon_dev_kbd;   break;
     case OLED_DEV_MOUSE: g = g_icon_dev_mouse; break;
-    default:             g = NULL;             break;   // OLED_DEV_NONE -> clear the band
+    default:             g = NULL;             break;   // OLED_DEV_NONE -> clear the slot
     }
     if (g) {
-        fb_blit(DEVICON_P0_OFF, g,      24);
-        fb_blit(DEVICON_P1_OFF, g + 24, 24);
+        fb_blit(DEVICON_P0_OFF, g,      32);
+        fb_blit(DEVICON_P1_OFF, g + 32, 32);
     } else {
-        memset(g_oled_fb + DEVICON_P0_OFF, 0, 24 * 2);   // 24 uint16_t entries per page strip
-        memset(g_oled_fb + DEVICON_P1_OFF, 0, 24 * 2);
+        memset(g_oled_fb + DEVICON_P0_OFF, 0, 32 * 2);   // 32 uint16_t entries per page strip
+        memset(g_oled_fb + DEVICON_P1_OFF, 0, 32 * 2);
     }
     oled_refresh_kick();
 }

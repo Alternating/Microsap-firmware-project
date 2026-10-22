@@ -24,7 +24,8 @@ void oled_draw_layout_icon(unsigned layout);  // from 0x10003800
 void oled_draw_attached_icon(bool attached);  // from 0x10003938
 
 // Connected-input-device indicator (Path B addition): draw an icon for the active input source
-// in the top-middle gap (pages 0/1, cols 56..79). OLED_DEV_NONE clears it.
+// in the right status column's device slot (pages 4/5), matching the original pico2maple
+// layout (VMU / bank# / DEVICE / SD). BT shows the text "BT". OLED_DEV_NONE clears the slot.
 enum { OLED_DEV_NONE = 0, OLED_DEV_BT, OLED_DEV_PAD, OLED_DEV_KBD, OLED_DEV_MOUSE };
 void oled_draw_device_icon(int type);
 
