@@ -3,7 +3,7 @@
 Path B own-firmware for the Pico 2 W (RP2350). Target output: `pico2maple.uf2`.
 
 ## Prerequisites
-- `arm-none-eabi-gcc` (tested with Arm GNU Toolchain 13.2.rel1)
+- `arm-none-eabi-gcc` (tested with Arm GNU Toolchain 13.2.rel1 and 15.3.rel2)
 - CMake ≥ 3.13 and Make/Ninja
 - Checkouts of the external components (any location; point the env vars at them):
   - **pico-sdk 2.2.0** with submodules initialized:
@@ -14,7 +14,7 @@ Path B own-firmware for the Pico 2 W (RP2350). Target output: `pico2maple.uf2`.
     pin still name `hids_client`), so it doesn't build cleanly; cluoma's extra controller
     parsers (`uni_hid_parser_*.c`) can be dropped in individually later.
   - **carlk3/no-OS-FatFS-SD-SDIO-SPI-RPi-Pico**
-  - (optional) **Ryzee119/tusb_xinput** once the xinput glue is written
+  - **Ryzee119/tusb_xinput** at `ae4f3a9` (`src/usb/xinput.c` declares its `uint16_t xinputh_open`)
 
 ### btstack version note (important)
 Bluepad32 5.x needs **BTstack v1.8.2+** (which renamed `hids_client` → `hids_host`), newer than

@@ -62,6 +62,14 @@ add_executable(pico2maple
 
 pico_generate_pio_header(pico2maple ${CMAKE_CURRENT_LIST_DIR}/src/maple.pio)
 
+# tusb_xinput ae4f3a9 declares xinputh_open uint16_t, for TinyUSB's newer driver API; pico-sdk
+# 2.2.0's TinyUSB 0.18 wants bool. The mismatch sits only in the library's usbh_xinput_driver
+# table, which nothing registers (src/usb/xinput.c registers its own bool adapter) and the
+# linker drops. GCC 14 and later make it an error; keep it a warning for this one file. Drop
+# this, and xinput.c's adapter, when pico-sdk's TinyUSB moves to the uint16_t open().
+set_source_files_properties(${TUSB_XINPUT_ROOT}/xinput_host.c PROPERTIES
+    COMPILE_OPTIONS "-Wno-error=incompatible-pointer-types")
+
 target_include_directories(pico2maple PRIVATE
     src
     ${TUSB_XINPUT_ROOT}
