@@ -4,6 +4,7 @@
 // controller support. Mirrors the original platform callbacks (p2m_bp32_*, 0x100082dc..0x10008b68).
 #include <string.h>
 #include "uni.h"
+#include "pico/time.h"   // time_us_64: undeclared, it was assumed to return int and truncated
 #include "bp32_platform.h"
 
 #ifndef CONFIG_BLUEPAD32_MAX_DEVICES
