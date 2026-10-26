@@ -525,16 +525,24 @@ void maple_core1_main(void)
     bool autosave_armed = false;
 
     for (;;) {
-        // (a) pending VMU bank switch (debounced DAT_10001bc4 µs)
+        // (a) pending VMU bank switch, as the original: once the bus has been idle 100 frames,
+        //     take slot 1's VMU off the bus so the console sees the card removed and drops its
+        //     cached directory, wait DAT_1000217c (300 ms), switch, then put the card back.
+        //     The original also saved the bank to the settings blob and restored it at boot;
+        //     this tree restores nothing, so it saves nothing.
         if (g_bank_switch_req == 0) {
             // (b) SD flush tick: after >99 frames idle-ish, flush dirty VMU blocks
             //     (raw: if (*DAT_10001bc0 && frames>99) { vmu_flush_dirty(); hotplug_tick(); })
-        } else if (/* debounce deadline reached */ time_us_64() >= bank_debounce_deadline) {
+        } else if (bank_debounce_deadline == 0) {
+            if (frames_lo > 99) {
+                g_subperiph_mask &= ~P2M_SUBPERIPH_VMU;
+                bank_debounce_deadline = time_us_64() + 300000;
+            }
+        } else if (time_us_64() >= bank_debounce_deadline) {
             vmu_bank_cycle(vmu_buf, g_bank_switch_req == 1, 0, 0);
-            char b; settings_get(settings, 1, &b);
-            settings_set(settings, 8, /* gid flag according to b=='\n' check */ 0);
-            settings_save(settings, 1);
+            bank_debounce_deadline = 0;
             g_bank_switch_req = 0;
+            g_subperiph_mask |= P2M_SUBPERIPH_VMU;
         }
 
         // (c) layout switched? → rebuild controller device-info after a short delay
