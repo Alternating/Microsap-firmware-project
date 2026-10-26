@@ -583,7 +583,9 @@ void maple_core1_main(void)
         switch (cmd) {
         case MAPLE_CMD_DEVICE_REQUEST:
             g_maple_dev_req++;
-            if (dst & 0x40) g_maple_port = dst >> 6;   // capture port addressing
+            // capture the port from a main-device request (bit 5, as the original's `<< 0x1a`
+            // test); bit 6 alone missed port A and port C, leaving replies addressed to B or D
+            if (dst & 0x20) g_maple_port = dst >> 6;
             if (!(dst & 3)) {                           // main device
                 out.header = MAPLE_HDR_DEVICE_STATUS_MAIN;   // cmd 5, 28 words (112B devinfo)
                 out.payload = g_devinfo_payload;
