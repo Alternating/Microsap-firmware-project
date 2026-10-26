@@ -45,6 +45,7 @@ int gameid_vmu_write(const char gameid[12], uint32_t bank_index, uint32_t offset
 int sd_read_lines(const char *name, char *linebuf, size_t maxlen,
                   void (*cb)(char *line, void *arg), void *arg);           // 0x10003c50
 int sd_file_exists(const char *name);                                      // 0x10003d14
+int sd_write_queue_service(void);      // core0 main loop: write one queued VMU page
 
 // ---- physical button (active-low, debounced; short press → 1, long hold → 2) ----
 typedef struct {

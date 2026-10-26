@@ -211,7 +211,8 @@ int vmu_block_read(vmu_state_t *v, uint32_t spec)
     return 0;
 }
 
-// from 0x1000278c — flush ONE dirty 4KB page per call; returns 1 if flushed, 0 if clean
+// from 0x1000278c — flush ONE dirty 4KB page per call; returns 1 if flushed, 0 if clean,
+// -1 if the SD write queue is full (page left dirty)
 int vmu_flush_dirty(vmu_state_t *v)
 {
     uint32_t mask = v->dirty_mask;
@@ -234,6 +235,9 @@ int vmu_flush_dirty(vmu_state_t *v)
         flash_safe_execute(do_page, &op, UINT32_MAX);
         v->dirty_mask &= ~(1u << page);
     } else if (v->storage_mode == 1) {
+        // Never block: this runs in core1's GET_CONDITION path, and waiting on a full queue
+        // stalls Maple and drops the controller. The page stays dirty for a later call.
+        if (queue_is_full(&g_sd_write_queue)) return -1;
         static sd_write_msg_t m;                 // 4KB+ message; original builds on stack
         memset(&m, 0, sizeof m);
         m.op = 1;                                // TODO(verify @0x1000278c op byte)
@@ -244,7 +248,8 @@ int vmu_flush_dirty(vmu_state_t *v)
         }
         m.offset = page * 0x1000;
         memcpy(m.data, &v->image[page * 0x1000], 0x1000);
-        queue_add_blocking(&g_sd_write_queue, &m);   // consumed on core0
+        if (!queue_try_add(&g_sd_write_queue, &m))   // consumed on core0 (sd_write_queue_service)
+            return -1;
         v->dirty_mask &= ~(1u << page);
     } else return 0;
 

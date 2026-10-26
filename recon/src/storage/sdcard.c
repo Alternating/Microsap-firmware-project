@@ -4,13 +4,20 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "pico/util/queue.h"
+#include "pico/mutex.h"
 #include "hardware/gpio.h"
 #include "ff.h"
 #include "storage.h"
+#include "maple/vmu.h"                // sd_write_msg_t
 
 queue_t g_sd_write_queue;
 uint8_t g_storage_status;      // 1 = no SD, 2 = SD mounted  (@0x2000fd6b)
 static FATFS g_fs;
+
+// FatFs is built without FF_FS_REENTRANT, and after boot both cores reach it: core0 writes
+// queued VMU pages and loads settings, core1 reads the settings file on a GameID command.
+// Every file-level helper below holds this for the whole open..close.
+auto_init_mutex(g_sd_mutex);
 
 // Debounce/press thresholds (values dumped from the binary literal pools).
 #define BTN_DEBOUNCE_US   30001u      // 0x7531
@@ -37,8 +44,11 @@ int sd_ensure_dirs(void)
 int sd_read_file(const char *name, void *buf, size_t exact_len)
 {
     FIL f;
-    if (f_open(&f, name, FA_READ | FA_WRITE | FA_OPEN_ALWAYS) != FR_OK)
+    mutex_enter_blocking(&g_sd_mutex);
+    if (f_open(&f, name, FA_READ | FA_WRITE | FA_OPEN_ALWAYS) != FR_OK) {
+        mutex_exit(&g_sd_mutex);
         return -1;
+    }
     int rc = -1;
     UINT br = 0;
     if (f_lseek(&f, exact_len) == FR_OK && f_size(&f) == exact_len &&
@@ -46,6 +56,7 @@ int sd_read_file(const char *name, void *buf, size_t exact_len)
         f_read(&f, buf, exact_len, &br) == FR_OK && br == exact_len)
         rc = 0;
     f_close(&f);
+    mutex_exit(&g_sd_mutex);
     return rc;
 }
 
@@ -56,8 +67,11 @@ int sd_read_file(const char *name, void *buf, size_t exact_len)
 int sd_write_file(const char *name, const void *buf, size_t len, uint32_t offset)
 {
     FIL f;
-    if (f_open(&f, name, FA_READ | FA_WRITE | FA_OPEN_ALWAYS) != FR_OK)
+    mutex_enter_blocking(&g_sd_mutex);
+    if (f_open(&f, name, FA_READ | FA_WRITE | FA_OPEN_ALWAYS) != FR_OK) {
+        mutex_exit(&g_sd_mutex);
         return -1;
+    }
     int rc = -1;
     UINT bw = 0;
     FSIZE_t end = (FSIZE_t)offset + len;
@@ -67,7 +81,33 @@ int sd_write_file(const char *name, const void *buf, size_t len, uint32_t offset
         rc = 0;
     if (f_close(&f) != FR_OK)            // close commits the size and any cached sector
         rc = -1;
+    mutex_exit(&g_sd_mutex);
     return rc;
+}
+
+// Core0, once per main-loop pass: write one VMU page core1 queued, so BTstack and USB never
+// wait on more than one 4KB SD write. The page is peeked, written, and only then removed:
+// its dirty bit is already clear, so the queue holds the only copy. A failed write stays
+// queued and is retried a second later rather than every pass, so a dead card cannot
+// starve core0. Returns 1 if a page was attempted, 0 if there was nothing to do.
+int sd_write_queue_service(void)
+{
+    static sd_write_msg_t m;             // 0x1014 bytes: too big for core0's stack
+    static uint64_t retry_at;
+    if (g_storage_status != 2 || time_us_64() < retry_at ||
+        !queue_try_peek(&g_sd_write_queue, &m))
+        return 0;
+    int rc = m.gameid_valid
+        ? gameid_vmu_write(m.gameid, 0, m.offset, m.data, sizeof m.data)
+        : vmu_bank_file_write(m.bank, m.offset, m.data, sizeof m.data);
+    if (rc) {
+        printf("[sd] page write failed: bank %u offset 0x%05lx, retrying\n",
+               m.bank, (unsigned long)m.offset);
+        retry_at = time_us_64() + 1000000;
+        return 1;
+    }
+    queue_try_remove(&g_sd_write_queue, NULL);
+    return 1;
 }
 
 // from 0x10003abc
@@ -100,7 +140,10 @@ int gameid_vmu_read(const char gameid[12], uint32_t bank_index, void *buf)
     char id[13], dir[24], path[48];
     gameid_trim(gameid, id);
     snprintf(dir, sizeof dir, "gameid/%s", id);
-    if ((f_mkdir(dir) & 0xf7) != 0) {
+    mutex_enter_blocking(&g_sd_mutex);
+    FRESULT mk = f_mkdir(dir);
+    mutex_exit(&g_sd_mutex);
+    if ((mk & 0xf7) != 0) {
         g_storage_status = 1;
         return -1;
     }
@@ -119,9 +162,10 @@ int gameid_vmu_write(const char gameid[12], uint32_t bank_index, uint32_t offset
 }
 
 // from 0x10003c50 — line reader for the controller-map cfg; strips \r, delivers non-empty
-// lines (truncated at maxlen) to cb.  FR_NO_FILE → -2.
-int sd_read_lines(const char *name, char *linebuf, size_t maxlen,
-                  void (*cb)(char *line, void *arg), void *arg)
+// lines (truncated at maxlen) to cb.  FR_NO_FILE → -2.  sd_read_lines below takes the lock;
+// cb runs under it, so it must not call back into this file.
+static int read_lines(const char *name, char *linebuf, size_t maxlen,
+                      void (*cb)(char *line, void *arg), void *arg)
 {
     FIL f;
     FRESULT r = f_open(&f, name, FA_READ);
@@ -160,12 +204,24 @@ int sd_read_lines(const char *name, char *linebuf, size_t maxlen,
     }
 }
 
+int sd_read_lines(const char *name, char *linebuf, size_t maxlen,
+                  void (*cb)(char *line, void *arg), void *arg)
+{
+    mutex_enter_blocking(&g_sd_mutex);
+    int rc = read_lines(name, linebuf, maxlen, cb, arg);
+    mutex_exit(&g_sd_mutex);
+    return rc;
+}
+
 // from 0x10003d14
 int sd_file_exists(const char *name)
 {
     FIL f;
+    mutex_enter_blocking(&g_sd_mutex);
     FRESULT r = f_open(&f, name, FA_READ);
-    if (r == FR_OK) { f_close(&f); return 0; }
+    if (r == FR_OK) f_close(&f);
+    mutex_exit(&g_sd_mutex);
+    if (r == FR_OK) return 0;
     return (r == FR_NO_FILE) ? -2 : -1;
 }
 
