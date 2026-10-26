@@ -49,9 +49,10 @@ int sd_read_file(const char *name, void *buf, size_t exact_len)
     return rc;
 }
 
-// from 0x10003b60 — ensure file size == len, then write len bytes at offset.
-// TODO(verify @0x10003b60): size==len gate vs the 0x400-at-0x1FC00 partial writes seen in
-// vmu_format_bank (possible that f_lseek grows the file and the check is tell==len).
+// from 0x10003b60 — grow the file to at least offset+len (f_lseek past the end expands it
+// in write mode), then write len bytes at offset. Requiring size == len, as reconstructed
+// first, refused every partial write: a 4KB VMU page or the 0x400 root block at 0x1FC00
+// into a 128KB vmuNN.bin.
 int sd_write_file(const char *name, const void *buf, size_t len, uint32_t offset)
 {
     FIL f;
@@ -59,11 +60,13 @@ int sd_write_file(const char *name, const void *buf, size_t len, uint32_t offset
         return -1;
     int rc = -1;
     UINT bw = 0;
-    if (f_lseek(&f, len) == FR_OK && f_size(&f) == len &&
+    FSIZE_t end = (FSIZE_t)offset + len;
+    if (f_lseek(&f, end) == FR_OK && f_size(&f) >= end &&
         f_lseek(&f, offset) == FR_OK &&
-        f_write(&f, buf, len, &bw) == FR_OK)
+        f_write(&f, buf, len, &bw) == FR_OK && bw == len)
         rc = 0;
-    f_close(&f);
+    if (f_close(&f) != FR_OK)            // close commits the size and any cached sector
+        rc = -1;
     return rc;
 }
 
