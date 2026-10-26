@@ -66,9 +66,13 @@ int sd_read_file(const char *name, void *buf, size_t exact_len)
 // into a 128KB vmuNN.bin.
 int sd_write_file(const char *name, const void *buf, size_t len, uint32_t offset)
 {
-    FIL f;
+    // Static, so a handle whose close failed is closed again on the next call: with
+    // FF_FS_LOCK, f_close keeps the file's share entry until its sync succeeds, and every
+    // reopen would return FR_LOCKED, so the VMU write queue would never drain.
+    static FIL f;
     mutex_enter_blocking(&g_sd_mutex);
-    if (f_open(&f, name, FA_READ | FA_WRITE | FA_OPEN_ALWAYS) != FR_OK) {
+    if ((f.obj.fs && f_close(&f) != FR_OK) ||
+        f_open(&f, name, FA_READ | FA_WRITE | FA_OPEN_ALWAYS) != FR_OK) {
         mutex_exit(&g_sd_mutex);
         return -1;
     }
