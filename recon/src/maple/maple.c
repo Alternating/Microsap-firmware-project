@@ -648,6 +648,9 @@ void maple_core1_main(void)
                 static uint8_t vmu_cond[8];
                 memset(vmu_cond, 0, sizeof vmu_cond);
                 vmu_cond[3] = (uint8_t)func;
+                if (func == MAPLE_FUNC_CLOCK)
+                    vmu_cond[4] = 0xff;     // timer buttons are active-low: console reads
+                                            // 0xFF000000, all released (as DreamPicoPort)
                 out.header = VMU_HDR(MAPLE_HDR_DATA_SHORT_VMU, vsrc);   // 0x08000102 (2 words)
                 out.payload = vmu_cond;
                 maple_tx_frame(&tx_ctx, &out);
