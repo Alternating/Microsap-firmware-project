@@ -1,0 +1,83 @@
+diff --git a/src/sd_driver/SPI/sd_card_spi.c b/src/sd_driver/SPI/sd_card_spi.c
+index 389f95a..f5b0bc5 100644
+--- a/src/sd_driver/SPI/sd_card_spi.c
++++ b/src/sd_driver/SPI/sd_card_spi.c
+@@ -791,6 +791,15 @@ static block_dev_err_t read_bytes(sd_card_t *sd_card_p, uint8_t *buffer, uint32_
+     }
+     return 0;
+ }
++/**
++ * @brief The argument for a block read or write command.
++ *
++ * SDHC and SDXC Cards (CCS=1) take the block number; SDSC Cards (CCS=0, up to
++ * and including 2 GB) take a byte address. CMD16 has set their block to 512.
++ */
++static inline uint32_t block_arg(sd_card_t *sd_card_p, uint32_t block) {
++    return SDCARD_V2HC == sd_card_p->state.card_type ? block : block * sd_block_size;
++}
+ /**
+  * @brief Read a block of data from the SD card.
+  *
+@@ -833,9 +842,9 @@ static block_dev_err_t in_sd_read_blocks(sd_card_t *sd_card_p, uint8_t *buffer,
+ 
+     // Send command to receive data
+     if (num_rd_blks == 1)
+-        status = sd_cmd(sd_card_p, CMD17_READ_SINGLE_BLOCK, data_address, false, 0);
++        status = sd_cmd(sd_card_p, CMD17_READ_SINGLE_BLOCK, block_arg(sd_card_p, data_address), false, 0);
+     else
+-        status = sd_cmd(sd_card_p, CMD18_READ_MULTIPLE_BLOCK, data_address, false, 0);
++        status = sd_cmd(sd_card_p, CMD18_READ_MULTIPLE_BLOCK, block_arg(sd_card_p, data_address), false, 0);
+     if (SD_BLOCK_DEVICE_ERROR_NONE != status) return status;
+ 
+     /* Optimization:
+@@ -1126,7 +1135,7 @@ static block_dev_err_t in_sd_write_blocks(sd_card_t *sd_card_p,
+     }
+ 
+     // Send command to perform write operation
+-    status = sd_cmd(sd_card_p, CMD25_WRITE_MULTIPLE_BLOCK, *data_address_p, false, 0);
++    status = sd_cmd(sd_card_p, CMD25_WRITE_MULTIPLE_BLOCK, block_arg(sd_card_p, *data_address_p), false, 0);
+     if (SD_BLOCK_DEVICE_ERROR_NONE != status) return status;
+ 
+     // Update the number of blocks requested for write
+@@ -1192,7 +1201,7 @@ static block_dev_err_t write_block(sd_card_t *sd_card_p, const uint8_t *buffer,
+     }
+ 
+     // Send command to perform the write operation
+-    status = sd_cmd(sd_card_p, CMD24_WRITE_BLOCK, address, false, 0);
++    status = sd_cmd(sd_card_p, CMD24_WRITE_BLOCK, block_arg(sd_card_p, address), false, 0);
+     if (SD_BLOCK_DEVICE_ERROR_NONE != status) return status;
+ 
+     // Write data
+@@ -1627,12 +1636,7 @@ DSTATUS sd_card_spi_init(sd_card_t *sd_card_p) {
+         sd_release(sd_card_p);
+         return sd_card_p->state.m_Status;
+     }
+-    // No support for SDSC Card (CCS=0) with byte unit address
+-    if (SDCARD_V2HC != sd_card_p->state.card_type) {
+-        EMSG_PRINTF("SD Standard Capacity Memory Card unsupported\n");
+-        sd_release(sd_card_p);
+-        return sd_card_p->state.m_Status;
+-    }
++    // SDSC Cards (CCS=0) take byte addresses: see block_arg()
+ 
+     DBG_PRINTF("SD card initialized\n");
+ 
+diff --git a/src/sd_driver/sd_regs.h b/src/sd_driver/sd_regs.h
+index 3489c9b..a599c92 100644
+--- a/src/sd_driver/sd_regs.h
++++ b/src/sd_driver/sd_regs.h
+@@ -134,8 +134,12 @@ static inline uint32_t CSD_sectors(CSD_t csd) /*  const  */ {
+         uint8_t c_size_mult = ext_bits16(csd, 49, 47);
+         //  MULT = 2^(C_SIZE_MULT+2)
+         uint32_t mult = 1UL << (c_size_mult + 2);
+-        //  BLOCKNR = (C_SIZE+1) * MULT
+-        return (c_size + 1) * mult;
++        // | max. read data block length                      | READ_BL_LEN        | 4     | xh            | R         | [83:80]   |
++        uint8_t read_bl_len = ext_bits16(csd, 83, 80);
++        //  BLOCKNR = (C_SIZE+1) * MULT, in blocks of 2^READ_BL_LEN bytes: 1024 on a 2 GB card,
++        //  so count 512-byte sectors, not blocks.
++        if (read_bl_len < 9 || read_bl_len > 11) return 0;
++        return ((c_size + 1) * mult) << (read_bl_len - 9);
+     } else if (ver == 1) {
+         // | device size                                    | C_SIZE               | 22    | xxxxxxh              | R         | [69:48]   |
+         c_size = ext_bits16(csd, 69, 48);

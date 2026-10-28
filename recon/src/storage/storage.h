@@ -11,13 +11,14 @@
 // ---- settings blob (256 bytes; flash slot 0x3FC000 = the picotool-loadable slot) ----
 // [0x00] bank; [0x01..0x91] mapping table (28 outputs × {out_id, 4 input slots} + options
 // u32 at +0x8c + autoload byte at +0x90); [0x92] u32 field mask; [0x96] gameid[12];
-// [0xa2] gameid_mode; [0xff] checksum.
+// [0xa2] gameid_mode; [0xa3] slot 2's backing (ours); [0xff] checksum.
 typedef struct { uint8_t raw[256]; } p2m_settings_t;
 
 #define SETTINGS_FIELD_BANK        1u
 #define SETTINGS_FIELD_MAPPING     2u
 #define SETTINGS_FIELD_GAMEID      4u
 #define SETTINGS_FIELD_GAMEID_MODE 8u
+#define SETTINGS_FIELD_SLOT2      16u   // slot2.h's SLOT2_CHOICE_*: SD or the Pulsar's VMU
 #define MAPPING_SIZE 0x91
 #define SETTINGS_FLASH_OFFSET 0x3FC000u
 
@@ -33,6 +34,7 @@ void mapping_defaults(uint8_t *mapping);                                  // 0x1
 // ---- SD layer ----
 extern queue_t g_sd_write_queue;   // element 0x1014 bytes, depth 16; consumed on core0
 extern uint8_t g_storage_status;   // 1 = no SD, 2 = SD mounted (@0x2000fd6b)
+extern volatile uint32_t g_sd_write_fails;   // queued page writes that failed (never reset)
 
 int sd_ensure_dirs(void);                                                  // 0x100039d0
 int sd_read_file(const char *name, void *buf, size_t exact_len);           // 0x10003a50
@@ -45,6 +47,7 @@ int gameid_vmu_write(const char gameid[12], uint32_t bank_index, uint32_t offset
 int sd_read_lines(const char *name, char *linebuf, size_t maxlen,
                   void (*cb)(char *line, void *arg), void *arg);           // 0x10003c50
 int sd_file_exists(const char *name);                                      // 0x10003d14
+int sd_write_queue_service(void);      // core0 main loop: write one queued VMU page
 
 // ---- physical button (active-low, debounced; short press → 1, long hold → 2) ----
 typedef struct {

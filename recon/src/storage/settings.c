@@ -80,6 +80,7 @@ void settings_set(p2m_settings_t *s, uint32_t field, const void *val)
     case SETTINGS_FIELD_MAPPING:     memmove(s->raw + 1, val, MAPPING_SIZE); break;
     case SETTINGS_FIELD_GAMEID:      memmove(s->raw + 0x96, val, 12); break;
     case SETTINGS_FIELD_GAMEID_MODE: s->raw[0xa2] = *(const uint8_t *)val != 0; break;
+    case SETTINGS_FIELD_SLOT2:       s->raw[0xa3] = *(const uint8_t *)val; break;
     default: break;
     }
     memcpy(&mask, s->raw + 0x92, 4);
@@ -99,6 +100,7 @@ bool settings_get(const p2m_settings_t *s, uint32_t field, void *out)
     case SETTINGS_FIELD_MAPPING:     memmove(out, s->raw + 1, MAPPING_SIZE); break;
     case SETTINGS_FIELD_GAMEID:      memmove(out, s->raw + 0x96, 12); break;
     case SETTINGS_FIELD_GAMEID_MODE: *(uint8_t *)out = s->raw[0xa2]; break;
+    case SETTINGS_FIELD_SLOT2:       *(uint8_t *)out = s->raw[0xa3]; break;
     default: break;
     }
     return true;
@@ -110,11 +112,18 @@ void settings_update_field(uint32_t field, const void *val, bool use_sd)
     p2m_settings_t fresh;
     bool ok;
     load_raw(fresh.raw, use_sd, &ok);
-    if (!ok || !blob_valid(fresh.raw)) return;   // original aborts on invalid store
+    // A read error aborts, as the original: starting fresh then would write defaults over every
+    // other field. The original also aborts on an invalid store, but it wrote defaults at boot
+    // (core1 init, 0x10000298), which this tree does not, so a card or flash that never held
+    // settings (sd_read_file creates the file) would refuse every field: start one.
+    if (!ok) return;
+    if (!blob_valid(fresh.raw)) settings_defaults(&fresh);
 
     bool differs = true;
     if (field == SETTINGS_FIELD_BANK)
         differs = fresh.raw[0] != *(const uint8_t *)val;
+    else if (field == SETTINGS_FIELD_SLOT2)
+        differs = fresh.raw[0xa3] != *(const uint8_t *)val;
     else if (field == SETTINGS_FIELD_MAPPING)
         differs = memcmp(val, fresh.raw + 1, MAPPING_SIZE) != 0;
     if (!differs) {

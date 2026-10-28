@@ -7,11 +7,15 @@
 #include "storage/storage.h"
 #include "usb/usb_host.h"
 #include "bt/bp32_platform.h"
+#include "maple/pulsar_card.h"
+#include "maple/slot2.h"
 
 // cross-module
 extern void apply_custom_mapping(const uint8_t *mapping, p2m_gamepad_t *gp);   // 0x10004344
 extern void dc_build_condition(const uint8_t *gp, int active_layout);          // 0x1000098c
 extern void maple_request_bank_switch(int dir);                                // 0x100008f0
+extern void maple_request_slot2(uint8_t choice);                               // ours
+extern void buzzer_set(uint8_t a, uint8_t b, int mode);                        // 0x1000811c
 extern int  cfg_load_custom_mapping(uint8_t *mapping, const char *name, bool create_sample);
 
 // --- shared state ---
@@ -28,10 +32,43 @@ static bool     s_rumble_pending;
 
 static uint32_t s_prev_combo;             // hotkey edge detection
 
+// Slot 2's backing: SETTINGS_FIELD_SLOT2, kept on the SD card, the only time there is
+// a choice to make. Core1 moves the slot; this keeps the choice and tells it.
+static uint8_t  s_slot2_choice;
+static uint8_t  s_prev_slot2_dpad;        // chord edge detection: bit0 Up, bit1 Down
+static uint8_t  s_beeps;                  // half-beeps still to play: odd on, even off
+static uint64_t s_beep_at;
+
 static void set_layout(int id)
 {
     g_active_layout   = (int16_t)id;
     g_devinfo_rebuild = (int16_t)id;      // core1 rebuilds the controller device-info
+}
+
+// Without an SD card there is nothing to choose between: slot 2 is the Pulsar's.
+// Core1 hears first; the settings write, an SD read and write, only stalls core0.
+static void slot2_choose(uint8_t choice)
+{
+    if (g_storage_status != 2 || choice == s_slot2_choice) return;
+    s_slot2_choice = choice;
+    maple_request_slot2(choice);
+    settings_update_field(SETTINGS_FIELD_SLOT2, &choice, true);
+}
+
+// The chord's feedback, played from the core0 loop: one beep for SD, two for the Pulsar.
+static void beep(unsigned n)
+{
+    s_beeps = (uint8_t)(n * 2);
+    s_beep_at = 0;
+}
+
+static void beep_tick(void)
+{
+    if (!s_beeps || time_us_64() < s_beep_at) return;
+    s_beeps--;
+    if (s_beeps & 1) buzzer_set(0x40, 1, 0);   // ~2.3 kHz (board.c's PWM divider)
+    else             buzzer_set(0, 0, 0);
+    s_beep_at = time_us_64() + 80000;
 }
 
 void control_init(void)
@@ -48,6 +85,23 @@ void control_init(void)
     g_active_layout   = 3;                 // standard; layout is not persisted
     g_devinfo_rebuild = g_active_layout;   // force an initial device-info build on core1
     g_rumble_enabled  = true;
+
+    // Until this runs core1 holds slot 2 on SD, as for "no Pulsar seen yet".
+    uint8_t choice = SLOT2_CHOICE_NONE;
+    if (use_sd && (!settings_read_field(SETTINGS_FIELD_SLOT2, &choice, true) ||
+                   choice > SLOT2_CHOICE_PULSAR))
+        choice = SLOT2_CHOICE_NONE;
+    s_slot2_choice = choice;
+    maple_request_slot2(choice);
+}
+
+// Once per core0 loop: the first Pulsar to connect takes slot 2, once, and the
+// chord's beeps play out.
+void slot2_tick(void)
+{
+    if (s_slot2_choice == SLOT2_CHOICE_NONE && pulsar_card_linked())
+        slot2_choose(slot2_first_pulsar(s_slot2_choice));
+    beep_tick();
 }
 
 void controller_poll(void)
@@ -90,6 +144,18 @@ void controller_poll(void)
     if (rising & (1u << 6)) maple_request_bank_switch(+1);  // Select+RB
     if (rising & (1u << 7)) maple_request_bank_switch(-1);  // Select+LB
     if (rising & (1u << 8)) g_rumble_enabled = !g_rumble_enabled;  // Select+DpadDown
+
+    // L+R+Up/Down: both analog triggers down, then a D-pad edge, steps slot 2 to the
+    // next or the previous backing. The game sees the press too: nothing is suppressed.
+    uint8_t dpad = 0;
+    if (active && gp.g[0x0e] >= 0xC0 && gp.g[0x0d] >= 0xC0)
+        dpad = (gp.g[0x09] ? 1u : 0u) | (gp.g[0x0a] ? 2u : 0u);
+    uint8_t pressed = dpad & ~s_prev_slot2_dpad;
+    s_prev_slot2_dpad = dpad;
+    if (pressed && g_storage_status == 2) {
+        slot2_choose(slot2_cycle(s_slot2_choice, pressed & 1));
+        beep(s_slot2_choice == SLOT2_CHOICE_PULSAR ? 2 : 1);
+    }
 
     if (select) {
         // Suppress gameplay input while the hotkey modifier is held: send neutral.

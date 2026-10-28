@@ -97,8 +97,11 @@ typedef struct {
     bool sess, pulled;
     bd_addr_t peer;
     uint32_t epoch, card;
+    uint32_t attachment;    // pulsar_card_attachment() the session belongs to: slot 2's buffer
     bool want_status;       // a STATUS? still to send, retried from the tick while busy
     bool gave_up;           // a block's READ failed every try: no re-pull until a new generation
+    // A moved epoch with blocks owed: 255 and 254 are read again and compared before any write.
+    bool verify, compared, differs;
     // Pull: blocks to READ in order, one outstanding.
     bool pulling, read_out;
     uint8_t order[256];
@@ -113,12 +116,18 @@ typedef struct {
     uint8_t buf[PULSAR_CARD_BLOCK];
     struct { uint8_t blk, seq; } flight[PULSAR_QUEUE_SLOTS];
     unsigned nflight;
+    // Slots free in the Pulsar's queue: the last STATUS queue_free, less each ACK OK since. After
+    // a reconnect inside a drain the queue still holds blocks from before, which nflight no longer
+    // counts. A WRITTEN frees a slot, but one owed from before a drop can arrive after the STATUS
+    // that already counted it, so a WRITTEN asks for a STATUS rather than adding one.
+    uint8_t budget;
     uint32_t written, failed;
 } pl_store_t;
 
 static pl_store_t s_store;
 
 static void store_tick(btstack_timer_source_t *ts);
+static void store_drop(void);
 
 static void request_next_query(pl_link_t *l);
 static void gatt_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size);
@@ -148,6 +157,10 @@ static void fail(pl_link_t *l, const char *where, uint8_t code)
     l->fail_where = where;
     l->fail_code = code;
     printf("[pulsar] 0x%04x FAILED at %s, code 0x%02x\n", l->con, where, code);
+    // Its STATUS can already have made it the owner (it comes as the CCC write lands). A failed
+    // link serves nothing, so it lets go: the card leaves, the screen resets, slot 2 can fall
+    // back to SD, and another Pulsar's STATUS can take the store, without waiting for a disconnect.
+    if (l == s_store.owner) store_drop();
 }
 
 static bool is_pulsar_chr(const gatt_client_characteristic_t *c, uint8_t which)
@@ -159,12 +172,14 @@ static bool is_pulsar_chr(const gatt_client_characteristic_t *c, uint8_t which)
 
 // ---- The store: the card's pull and push -----------------------------------------
 // Session rule, decided before the pull: a STATUS from the same Pulsar with the same epoch keeps
-// the image and the pending queue (a reconnect while the Pulsar was still draining); anything
-// else discards both before a fresh pull. The epoch moves on every dock, undock, link loss, power
-// loss and failed write (host_integration.md, "Generations"), so within one Pulsar it alone says
-// "same card". Not the fingerprint: it hashes blocks 255 and 254, so our own FAT and root writes
-// move it every save, and the Pulsar announces that before their WRITTEN. Epochs are per device,
-// hence the peer address.
+// the image and the pending queue (a reconnect while the Pulsar was still draining). A moved
+// epoch keeps them too while blocks are owed, if blocks 255 and 254, read again, match the image
+// wherever they are not owed (host_integration.md, "Sessions and reconnects"). Anything
+// else discards both before a fresh pull. The epoch moves on every dock, undock, power loss,
+// failed write, and link loss once the Pulsar's own queue is empty ("Generations"), so it says
+// "same generation", not "same card". Not the fingerprint either: it hashes blocks 255 and 254, so
+// our own FAT and root writes move it every save, and the Pulsar announces that before their
+// WRITTEN. Epochs are per device, hence the peer address.
 
 static uint8_t store_write(pl_link_t *l, const uint8_t *v, uint16_t len)
 {
@@ -177,6 +192,37 @@ static void store_forget_push(void)
     s_store.sending = false;
     s_store.nflight = 0;
     s_store.full = false;
+    pulsar_card_settled();
+}
+
+// Slot 2's buffer changed hands: the session was for the image that left, whatever
+// the epoch says. A card attached since needs a STATUS to start its pull. Returns whether it did.
+static bool store_sync(void)
+{
+    uint32_t a = pulsar_card_attachment();
+    if (a == s_store.attachment) return false;
+    s_store.attachment = a;
+    store_forget_push();
+    s_store.sess = s_store.pulling = s_store.pulled = s_store.gave_up = s_store.verify = false;
+    return true;
+}
+
+// Everything the Pulsar was sent and has not confirmed is owed again: back in the queue.
+static void store_requeue_push(void)
+{
+    if (s_store.sending) pulsar_card_requeue(s_store.blk);
+    for (unsigned k = 0; k < s_store.nflight; k++) pulsar_card_requeue(s_store.flight[k].blk);
+    store_forget_push();
+}
+
+// READs of s_store.order, one outstanding.
+static void reads_start(void)
+{
+    s_store.i = 0;
+    s_store.phases = 0;
+    s_store.tries = 0;
+    s_store.read_out = false;
+    s_store.pulling = true;
 }
 
 // Root, FAT, directory from the top, then whatever the FAT says is in use.
@@ -189,13 +235,44 @@ static void pull_start(void)
     s_store.order[s_store.n++] = PULSAR_CARD_ROOT;
     s_store.order[s_store.n++] = PULSAR_CARD_FAT;
     for (int b = PULSAR_CARD_FAT - 1; b >= (int)PULSAR_CARD_DIR_FIRST; b--) s_store.order[s_store.n++] = (uint8_t)b;
-    s_store.i = 0;
-    s_store.phases = 0;
-    s_store.tries = 0;
-    s_store.read_out = false;
-    s_store.pulling = true;
+    reads_start();
     s_store.pulled = false;
+    s_store.verify = false;
     printf("[pulsar] card: pull started (epoch %lu)\n", (unsigned long)s_store.epoch);
+}
+
+// A moved epoch with blocks owed (the session rule above): 255 and 254 again, which the Pulsar
+// also needs read before it stages a write, compared with the image. The image stays as it is.
+static void verify_start(void)
+{
+    s_store.n = 0;
+    s_store.order[s_store.n++] = PULSAR_CARD_ROOT;
+    s_store.order[s_store.n++] = PULSAR_CARD_FAT;
+    reads_start();
+    s_store.verify = true;
+    s_store.compared = s_store.differs = false;
+    printf("[pulsar] card: epoch %lu with %u owed, reading 255 and 254 again\n",
+           (unsigned long)s_store.epoch, pulsar_card_pending());
+}
+
+// The same card: present, and every block owed goes again. Another card, the same one changed
+// elsewhere, or nothing compared because both blocks are owed: a fresh pull, and what was owed
+// goes with the card it was for. Both owed means a format the Pulsar never got; writing it onto
+// a card swapped in meanwhile would wipe that card. The check is the spec's and no stronger: an
+// owed block is not compared, and a save owes the FAT, so a card saved to elsewhere meanwhile
+// passes on its root alone and takes our FAT.
+static void verify_done(void)
+{
+    s_store.pulling = false;
+    if (s_store.compared && !s_store.differs) {
+        s_store.verify = false;
+        pulsar_card_set_present(true);
+        printf("[pulsar] card: the same card, %u owed going again\n", pulsar_card_pending());
+        return;
+    }
+    printf("[pulsar] card: %s, %u owed dropped\n",
+           s_store.differs ? "not the same card" : "nothing to compare", pulsar_card_pending());
+    pull_start();
 }
 
 // Free FAT entries read 0xfffc; entries are little-endian u16 in image order.
@@ -220,6 +297,7 @@ static uint32_t card_fingerprint(void)
 
 static void store_on_status(pl_link_t *l)
 {
+    if (l->state == PL_FAILED) return;                      // let go of the store (fail())
     if (!s_store.owner) {
         s_store.owner = l;
         btstack_run_loop_set_timer_handler(&s_store.tick, store_tick);
@@ -229,6 +307,9 @@ static void store_on_status(pl_link_t *l)
         printf("[pulsar] 0x%04x owns the card\n", l->con);
     }
     if (l != s_store.owner) return;
+    s_store.budget = l->queue_free < PULSAR_QUEUE_SLOTS ? l->queue_free : PULSAR_QUEUE_SLOTS;
+    pulsar_card_set_linked(l->flags & PULSAR_FLAG_VMU);     // core1 may move slot 2 to its VMU
+    store_sync();
     if (!pulsar_card_available()) return;                   // the SD card holds slot 2
     s_store.full = false;                                   // queue_free may have moved
 
@@ -237,21 +318,28 @@ static void store_on_status(pl_link_t *l)
         pulsar_card_set_present(false);
         pulsar_card_discard();
         store_forget_push();
-        s_store.sess = s_store.pulling = s_store.pulled = false;
+        s_store.sess = s_store.pulling = s_store.pulled = s_store.verify = false;
         return;
     }
-    bool same = s_store.sess && l->epoch == s_store.epoch && bd_addr_cmp(l->addr, s_store.peer) == 0;
+    bool same_peer = bd_addr_cmp(l->addr, s_store.peer) == 0;
     s_store.card = l->card;
-    if (same) {
-        if (s_store.pulled) pulsar_card_set_present(true);  // reconnect: image and queue stand
-        else if (!s_store.pulling && !s_store.gave_up) pull_start();   // the last pull did not finish
+    if (s_store.sess && same_peer && l->epoch == s_store.epoch) {
+        if (s_store.pulling || s_store.gave_up) return;     // reads under way, or given up on
+        if (s_store.verify) verify_start();                 // cut short: the Pulsar still needs it
+        else if (s_store.pulled) pulsar_card_set_present(true);  // reconnect: image and queue stand
+        else pull_start();                                  // the last pull did not finish
         return;
     }
-    if (s_store.sess) printf("[pulsar] card: new generation, %u pending dropped\n", pulsar_card_pending());
+    // A new generation holds nothing of ours: whatever the Pulsar was sent and has not confirmed,
+    // a WRITTEN FAILED's block among it, is owed again.
+    store_requeue_push();
+    bool resume = s_store.pulled && same_peer && pulsar_card_pending();
     s_store.sess = true;
     s_store.gave_up = false;
     s_store.epoch = l->epoch;
     bd_addr_copy(s_store.peer, l->addr);
+    if (resume) { verify_start(); return; }
+    if (pulsar_card_pending()) printf("[pulsar] card: new generation, %u pending dropped\n", pulsar_card_pending());
     pull_start();
 }
 
@@ -274,6 +362,14 @@ static void store_on_data(pl_link_t *l, const uint8_t *v, uint16_t len)
             printf("[pulsar] card: READ %u failed %u times, pull given up\n", blk, s_store.tries);
             s_store.pulling = false;
             s_store.gave_up = true;
+            if (s_store.verify) {
+                // The re-read: the card cannot be told the same, so it goes as a failed pull
+                // leaves it, absent with nothing owed. Kept present, it would take saves that
+                // nothing pushes, and owed blocks would hold slot 2 for as long as the link stays.
+                pulsar_card_set_present(false);
+                pulsar_card_discard();
+                s_store.verify = s_store.pulled = false;
+            }
             return;
         }
         // NO_VMU and DISCARDED come with a new generation: let the next STATUS start over, and
@@ -285,7 +381,13 @@ static void store_on_data(pl_link_t *l, const uint8_t *v, uint16_t len)
         return;
     }
     if (len != 4 + PULSAR_CARD_PHASE || phase > 3) return;
-    pulsar_card_fill(blk, phase, v + 4);
+    if (s_store.verify) {
+        int c = pulsar_card_compare(blk, phase, v + 4);
+        s_store.compared |= c == 0;
+        s_store.differs |= c > 0;
+    } else {
+        pulsar_card_fill(blk, phase, v + 4);
+    }
     s_store.phases |= 1u << phase;
     s_store.read_ms = btstack_run_loop_get_time_ms();
     if (s_store.phases != 0xf) return;
@@ -294,6 +396,10 @@ static void store_on_data(pl_link_t *l, const uint8_t *v, uint16_t len)
     s_store.read_out = false;
     s_store.tries = 0;
     s_store.i++;
+    if (s_store.verify) {
+        if (s_store.i == s_store.n) verify_done();
+        return;
+    }
     if (s_store.i == 2)
         printf("[pulsar] card: fingerprint %08lx, STATUS says %08lx\n",
                (unsigned long)card_fingerprint(), (unsigned long)l->card);
@@ -311,6 +417,7 @@ static void store_on_ack(pl_link_t *l, const uint8_t *v, uint16_t len)
     if (v[1] != s_store.blk || v[2] != s_store.seq) return;
     s_store.sending = false;
     if (v[3] == PULSAR_RES_OK) {
+        if (s_store.budget) s_store.budget--;
         s_store.flight[s_store.nflight].blk = s_store.blk;
         s_store.flight[s_store.nflight].seq = s_store.seq;
         s_store.nflight++;
@@ -325,6 +432,7 @@ static void store_on_ack(pl_link_t *l, const uint8_t *v, uint16_t len)
 static void store_on_written(pl_link_t *l, const uint8_t *v, uint16_t len)
 {
     if (l != s_store.owner || len != 4) return;
+    s_store.want_status = true;          // a slot freed: the next tick asks how many there are
     for (unsigned k = 0; k < s_store.nflight; k++) {
         if (s_store.flight[k].blk != v[1] || s_store.flight[k].seq != v[2]) continue;
         s_store.flight[k] = s_store.flight[--s_store.nflight];
@@ -374,7 +482,7 @@ static bool seq_outstanding(uint8_t blk, uint8_t seq)
 static void push_service(pl_link_t *l, uint32_t now)
 {
     if (!s_store.sending) {
-        if (s_store.full || s_store.nflight >= PULSAR_QUEUE_SLOTS) return;
+        if (s_store.full || !s_store.budget || s_store.nflight >= PULSAR_QUEUE_SLOTS) return;
         int b = pulsar_card_take(data_in_flight(), s_store.buf);
         if (b < 0) return;
         s_store.sending = true;
@@ -400,6 +508,7 @@ static void store_tick(btstack_timer_source_t *ts)
     pl_link_t *l = btstack_run_loop_get_timer_context(ts);
     btstack_run_loop_set_timer(ts, PULSAR_TICK_MS);
     btstack_run_loop_add_timer(ts);
+    if (store_sync() && pulsar_card_available()) s_store.want_status = true;
     if (l->state != PL_READY) return;
     uint32_t now = btstack_run_loop_get_time_ms();
     if (s_store.want_status) {
@@ -407,25 +516,28 @@ static void store_tick(btstack_timer_source_t *ts)
         if (store_write(l, &op, 1) == ERROR_CODE_SUCCESS) s_store.want_status = false;
     }
     if (s_store.pulling) pull_service(l, now);
-    else if (s_store.pulled && (l->flags & PULSAR_FLAG_VMU)) push_service(l, now);
-    pulsar_lcd_progress(s_store.pulling ? s_store.i : 0, s_store.pulling ? s_store.n : 0);
+    else if (s_store.pulled && !s_store.verify && (l->flags & PULSAR_FLAG_VMU)) push_service(l, now);
+    if (!s_store.sending && !s_store.nflight) pulsar_card_settled();
+    bool loading = s_store.pulling && !s_store.verify;     // two blocks read again are no pull
+    pulsar_lcd_progress(loading ? s_store.i : 0, loading ? s_store.n : 0);
     pulsar_lcd_service(l->con, l->chr_lcd.value_handle, l->mtu);
 }
 
 // The owner's link dropped. The card leaves the bus; the session, the image and what is still
-// owed stay for a reconnect to the same generation. Acked blocks with no WRITTEN yet have an
-// unknown fate: pending again, so they are resent (the same bytes, harmless) if it is the same.
+// owed stay for a reconnect, to the same generation or the same card. Acked blocks with no
+// WRITTEN yet have an unknown fate: pending again, so they are resent (the same bytes, harmless).
 static void store_drop(void)
 {
     btstack_run_loop_remove_timer(&s_store.tick);
     pulsar_card_set_present(false);
-    if (s_store.sending) pulsar_card_requeue(s_store.blk);
-    for (unsigned k = 0; k < s_store.nflight; k++) pulsar_card_requeue(s_store.flight[k].blk);
-    store_forget_push();
+    store_requeue_push();
     s_store.pulling = false;
     s_store.want_status = false;        // the next link asks for STATUS as it subscribes
     s_store.owner = NULL;
     pulsar_lcd_reset();
+    // Last: core1 holds slot 2 for the Pulsar while its card is owed blocks, so by the time it
+    // sees the link gone it must see them requeued above.
+    pulsar_card_set_linked(false);
 }
 
 static void decode_status(pl_link_t *l, const uint8_t *v, uint16_t len)

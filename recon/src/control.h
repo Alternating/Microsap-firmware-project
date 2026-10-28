@@ -16,6 +16,7 @@ extern uint8_t          g_custom_map[0x91];
 void control_init(void);       // load settings + custom map; set default layout
 void controller_poll(void);    // once per core0 loop: input -> hotkeys/mapping -> DC condition
 void rumble_tick(void);        // forward a pending DC rumble to the active pad
+void slot2_tick(void);         // the first Pulsar takes slot 2; the slot-2 chord's beeps
 
 // Puru Puru device hooks the Maple engine (core1) calls on DC vibration commands.
 void rumble_start(void *a, void *b);

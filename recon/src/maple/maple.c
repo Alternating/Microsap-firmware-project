@@ -29,6 +29,7 @@
 #include "maple.pio.h"   // generated: maple_tx_program / maple_rx_program
 #include "maple_frames.h"   // decoded Maple response headers
 #include "pulsar_card.h"
+#include "slot2.h"
 #include "bt/pulsar_lcd.h"
 
 // Controller GET_CONDITION reply: DATA_TRANSFER (cmd 8), 3 words (func + 8-byte condition),
@@ -88,7 +89,7 @@ extern int  vmu_init_slot2(uint8_t *v);                    // second SD-backed V
 extern void vmu_load_bank(uint8_t *vmu_buf, int bank, int gameid, ...); // 0x10002948
 extern void vmu_load_gameid_bank(uint8_t *vmu_buf, int flags);          // 0x10002aa0
 extern void vmu_bank_cycle(uint8_t *vmu_buf, bool forward, uint32_t t_lo, uint32_t t_hi); // 0x10002ac4
-extern void vmu_flush_dirty(uint8_t *vmu_buf, ...);         // 0x1000278c
+extern int  vmu_flush_dirty(uint8_t *vmu_buf, ...);         // 0x1000278c (1 flushed, 0 clean, -1 queue full)
 extern int  vmu_block_read(void *v, uint32_t addr);         // 0x10002748 (0 = ok)
 extern void vmu_block_write(uint8_t *vmu_buf, uint32_t addr, const void *data, int words); // 0x100028a4
 extern void vmu_lcd_write(uint8_t *vmu_buf, uint32_t addr, const void *data, int words);   // 0x1000290c
@@ -99,6 +100,9 @@ extern void vmu_invalidate(void);                           // 0x10002eb8
 extern void vmu_media_info_build(void *v);                  // 0x10002250
 extern int  vmu_lcd_render_notify(void *v);                 // 0x100028f4
 extern void oled_init(bool rotated);          // 0x10002d64
+extern void oled_draw_bank(unsigned bank);
+extern queue_t g_sd_write_queue;                            // drained on core0
+extern volatile uint32_t g_sd_write_fails;                  // page writes that failed
 extern int  rumble_get_cond(void *a, void *b);              // 0x10007c30
 extern void rumble_set_block(void *a, void *b);             // 0x10007c14 (BLOCK_WRITE func 0x100)
 extern void rumble_start(void *a, void *b);                 // 0x10007b60 (SET_CONDITION func 0x100)
@@ -145,6 +149,94 @@ void maple_storage_hotplug_tick(void)
         vmu_invalidate();
     }
     g_hotplug_deadline = time_us_64() + g_hotplug_interval_us;
+}
+
+// ---- Slot 2: the SD card's VMU or the Pulsar's ----------------------------------
+// One buffer, never both: slot2.h decides where slot 2 heads, this moves it. A switch is an unplug
+// and a replug: slot 2's bit is down from its first step until 300 ms after its last, answered
+// throughout as the bank switch does, so the console sees the card go and drops its cached
+// directory. A switch can end in the pass it began (a drained Pulsar to SD); without the 300 ms no
+// reply would ever carry the bit down. Leaving SD flushes first; leaving the Pulsar drains first,
+// then reloads SD, the one step that stops core1.
+static slot2_backing_t s_slot2;            // what vmu_buf2 holds
+static volatile uint8_t s_slot2_choice;    // SETTINGS_FIELD_SLOT2, posted by core0
+static bool     s_slot2_moving;            // a switch has begun: the bit is down
+static uint64_t s_slot2_back;              // a switch has ended: the bit stays down until then
+static uint64_t s_slot2_lost;              // when the Pulsar holding slot 2 went; 0 while it has not
+static uint32_t s_slot2_fails;             // g_sd_write_fails as the switch began
+
+void maple_request_slot2(uint8_t choice) { s_slot2_choice = choice; }
+
+static void slot2_set_bit(bool on)
+{
+    if (on) g_subperiph_mask |= P2M_SUBPERIPH_RUMBLE;
+    else    g_subperiph_mask &= ~P2M_SUBPERIPH_RUMBLE;
+}
+
+// One step per pass of the protocol loop, so Maple is answered throughout but for the SD read.
+// Returns early while a step cannot finish yet.
+static void slot2_move(uint8_t *vmu_buf, uint8_t *vmu_buf2, bool linked, uint32_t idle_frames)
+{
+    if (!s_slot2_moving) {
+        if (idle_frames < 100) return;   // as the bank switch: never pull a card out mid-save
+        s_slot2_moving = true;
+        s_slot2_fails = g_sd_write_fails;
+        slot2_set_bit(false);
+        printf("[slot2] leaving %s\n", s_slot2 == SLOT2_SD ? "SD" : "the Pulsar");
+    }
+    if (s_slot2 == SLOT2_SD) {
+        // Every dirty page into the write queue, and the queue onto the card. A card pulled while
+        // it held slot 2 is never initialised again (no detect pin): its page fails and is retried
+        // each second for ever, and must not wedge the switch. Three failures since the switch
+        // began count as that, and it goes on without what is unwritten; a transient failure
+        // clears on a retry, and the flush carries on.
+        if (g_sd_write_fails - s_slot2_fails < 3 &&
+            (vmu_flush_dirty(vmu_buf2) != 0 || !queue_is_empty(&g_sd_write_queue)))
+            return;
+        g_dual_vmu = false;
+        s_slot2 = SLOT2_PULSAR;
+        pulsar_card_attach();            // the link pulls it; the bit follows presence
+    } else {
+        // The push drains first. With no link nothing can drain: only the chord gets here then,
+        // since slot2_target holds the slot while the card is owed blocks. A drop gets the same
+        // grace as there, so a reconnect inside it still delivers them; after it they are dropped.
+        if (!pulsar_card_drained()) {
+            if (linked || time_us_64() - s_slot2_lost < SLOT2_GRACE_US) return;
+            puts("[slot2] the Pulsar is gone: blocks owed to its card dropped");
+        }
+        pulsar_card_release();
+        uint64_t t = time_us_64();
+        g_dual_vmu = vmu_init_slot2(vmu_buf2) == 0;  // core1 answers nothing during the read
+        oled_draw_bank(vmu_buf[0x202cc]);            // vmu_state_t.bank: the load drew slot 2's
+        printf("[slot2] SD %s in %lu ms\n", g_dual_vmu ? "loaded" : "failed",
+               (unsigned long)((time_us_64() - t) / 1000));
+        s_slot2 = SLOT2_SD;
+    }
+    s_slot2_moving = false;
+    s_slot2_back = time_us_64() + 300000;   // the bank switch's 300 ms off the bus
+    printf("[slot2] now %s\n", s_slot2 == SLOT2_SD ? "SD" : "the Pulsar");
+}
+
+// Each pass, ahead of the frame: head slot 2 where slot2_target says, then hold its bit to what
+// it holds, so the console sees the card once pulled and loses it when the Pulsar goes. Without
+// SD, slot 2 is the Pulsar's for good, as on main.
+static void slot2_service(uint8_t *vmu_buf, uint8_t *vmu_buf2, uint32_t idle_frames)
+{
+    if (g_storage_status == 2) {
+        bool linked = pulsar_card_linked();
+        uint64_t now = time_us_64();
+        if (linked || s_slot2 != SLOT2_PULSAR) s_slot2_lost = 0;
+        else if (!s_slot2_lost) s_slot2_lost = now;
+        slot2_backing_t want = slot2_target(s_slot2_choice, s_slot2, linked,
+                                            s_slot2_lost ? now - s_slot2_lost : 0,
+                                            !pulsar_card_drained());
+        if (want != s_slot2) slot2_move(vmu_buf, vmu_buf2, linked, idle_frames);
+        else s_slot2_moving = false;     // a switch called off before it moved anything
+    } else s_slot2_moving = false;       // the card failed mid-switch: slot 2 stays where it is
+    // Down from a switch's first step until 300 ms after its last; until a switch begins (it waits
+    // for the bus to go idle), it follows the card as ever.
+    if (!s_slot2_moving && time_us_64() >= s_slot2_back)
+        slot2_set_bit(s_slot2 == SLOT2_SD ? g_dual_vmu : pulsar_card_present());
 }
 
 // ---- RX -----------------------------------------------------------------------
@@ -469,8 +561,12 @@ void maple_core1_main(void)
         puts("[core1] slot 2: SD-backed VMU up (dual VMU; rumble disabled)");
     }
     // Without the SD card, slot 2's buffer holds the VMU docked in a Pulsar, which the link
-    // fills once one connects. Before g_core1_ready: core0 starts Bluetooth only after it.
-    pulsar_card_init(g_dual_vmu ? NULL : vmu_buf2);
+    // fills once one connects. With it, slot 2 boots as SD: no Pulsar is up before Bluetooth,
+    // and slot2_service moves it once one connects, if chosen. Before g_core1_ready: core0
+    // starts Bluetooth only after it.
+    pulsar_card_init(vmu_buf2);
+    s_slot2 = g_storage_status == 2 ? SLOT2_SD : SLOT2_PULSAR;
+    if (s_slot2 == SLOT2_PULSAR) pulsar_card_attach();
     pulsar_lcd_init();
     usb_announce(/*DAT_10001b80*/ 0);
 
@@ -551,6 +647,9 @@ void maple_core1_main(void)
             g_bank_switch_req = 0;
             g_subperiph_mask |= P2M_SUBPERIPH_VMU;
         }
+        // (a2) slot 2's backing, SD or the Pulsar's VMU, and its bit. Here, ahead of the receive,
+        //      so the SD read that ends a switch never delays a reply to a frame already in.
+        slot2_service(vmu_buf, vmu_buf2, frames_lo);
 
         // (c) layout switched? → rebuild controller device-info after a short delay
         extern volatile int16_t g_active_layout, g_devinfo_rebuild;
@@ -578,17 +677,11 @@ void maple_core1_main(void)
         const uint8_t *f = g_rx_buf;     // [len][src][dst][cmd]
         uint8_t len = f[0], dst = f[2], cmd = f[3];
         uint32_t func = *(const uint32_t *)(f + 4);   // first payload word (host order)
-        // Slot 2 without the SD card is the Pulsar's card while it is present. Its bit follows
-        // presence, so the console sees the card plugged in once pulled and pulled out when the
-        // Pulsar goes, never a card whose contents change underneath it.
-        bool to_pulsar = false;
-        if (!g_dual_vmu) {
-            if (pulsar_card_present()) g_subperiph_mask |= P2M_SUBPERIPH_RUMBLE;
-            else                       g_subperiph_mask &= ~P2M_SUBPERIPH_RUMBLE;
-            to_pulsar = (dst & 2) && (g_subperiph_mask & P2M_SUBPERIPH_RUMBLE);
-        }
+        // Slot 2 answers as what it holds, and only while its bit is up (slot2_service).
+        bool slot2_up  = (dst & 2) && (g_subperiph_mask & P2M_SUBPERIPH_RUMBLE);
+        bool to_pulsar = slot2_up && s_slot2 == SLOT2_PULSAR;
         bool to_vmu    = (dst & 1) && (g_subperiph_mask & P2M_SUBPERIPH_VMU);
-        bool to_vmu2   = (dst & 2) && g_dual_vmu;
+        bool to_vmu2   = slot2_up && s_slot2 == SLOT2_SD;
         bool to_rumble = (dst & 2) && !g_dual_vmu && !to_pulsar && (g_subperiph_mask & P2M_SUBPERIPH_RUMBLE);
         // Selected VMU instance for this frame (slot 1 internal, or slot 2 SD) + its src-AP
         // nibble for replies. vmu_buf2 is only valid when g_dual_vmu is set.

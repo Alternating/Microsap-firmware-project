@@ -234,6 +234,10 @@ freely while core 0 executes from XIP, SD writes from the VMU engine are marshal
 `g_sd_write_queue` (a `pico/util` queue of ~0x1014-byte `sd_write_msg_t` messages) and performed on
 core 0.
 
+Any card FatFs can read works: FAT32 on MBR, or exFAT. no-OS-FatFS refuses cards of 2 GB or less
+(SDSC, byte-addressed) since its v2.5.0, and so does the original firmware; the local patch
+`recon/patches/no-OS-FatFS-sdsc-cards.patch` takes them back.
+
 **Dual VMU.** When an SD card is present (`g_storage_status == 2`), `maple_core1_main` brings up a
 second `vmu_state_t` on controller **slot 2** via `vmu_init_slot2(vmu_buf2)`: that instance is
 always SD-backed (storage mode 1), loads bank 2, and therefore uses backing file `vmu02.bin`
@@ -271,7 +275,7 @@ CYW43 Bluetooth firmware, and without it the HCI power-on fails.
 - **pico-sdk 2.2.0** with submodules: `git -C <pico-sdk> submodule update --init lib/tinyusb lib/btstack lib/cyw43-driver lib/lwip`
 - **ricardoquesada/bluepad32** 5.x (upstream; cluoma's fork does not build cleanly without mid-refactor fixes), with its `external/btstack` submodule initialized
 - **BTstack v1.8.2+** (newer than pico-sdk 2.2.0's bundled copy; bluepad32's pinned btstack is used via `PICO_BTSTACK_PATH`)
-- **carlk3/no-OS-FatFS-SD-SDIO-SPI-RPi-Pico**
+- **carlk3/no-OS-FatFS-SD-SDIO-SPI-RPi-Pico**, with `recon/patches/no-OS-FatFS-sdsc-cards.patch` applied (`git apply` in its checkout)
 - **Ryzee119/tusb_xinput** (XInput host driver)
 - **arm-gnu-toolchain 13.2.rel1** (arm-none-eabi-gcc)
 - **cmake ≥ 3.29** and Make or Ninja
@@ -667,6 +671,8 @@ Gathered from the `TODO(verify)` markers in `recon/src` and the notes:
 
 Local patch `recon/patches/bluepad32-xbox-ble-descriptor-at-setup.patch` must be applied to the
 bluepad32 checkout; it is a port of cluoma's fork fix and carries that attribution.
+`recon/patches/no-OS-FatFS-sdsc-cards.patch` (SD cards of 2 GB or less) goes on the no-OS-FatFS
+checkout.
 
 ## Use & distribution
 
