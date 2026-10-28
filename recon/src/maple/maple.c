@@ -225,10 +225,12 @@ static void slot2_service(uint8_t *vmu_buf, uint8_t *vmu_buf2, uint32_t idle_fra
         slot2_backing_t want = slot2_target(s_slot2_choice, s_slot2, linked,
                                             s_slot2_lost ? now - s_slot2_lost : 0,
                                             !pulsar_card_drained());
-        if (want != s_slot2) { slot2_move(vmu_buf, vmu_buf2, linked, idle_frames); return; }
-        s_slot2_moving = false;          // a switch called off before it moved anything
+        if (want != s_slot2) slot2_move(vmu_buf, vmu_buf2, linked, idle_frames);
+        else s_slot2_moving = false;     // a switch called off before it moved anything
     }
-    slot2_set_bit(s_slot2 == SLOT2_SD ? g_dual_vmu : pulsar_card_present());
+    // Down from a switch's first step to its last; until a switch begins (it waits for the bus to
+    // go idle), it follows the card as ever.
+    if (!s_slot2_moving) slot2_set_bit(s_slot2 == SLOT2_SD ? g_dual_vmu : pulsar_card_present());
 }
 
 // ---- RX -----------------------------------------------------------------------
