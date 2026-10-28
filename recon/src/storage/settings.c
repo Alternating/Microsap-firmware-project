@@ -112,10 +112,12 @@ void settings_update_field(uint32_t field, const void *val, bool use_sd)
     p2m_settings_t fresh;
     bool ok;
     load_raw(fresh.raw, use_sd, &ok);
-    // The original aborts on an invalid store. It also wrote defaults at boot (core1 init,
-    // 0x10000298), which this tree does not, so a card or flash that never held settings would
-    // refuse every field: start one.
-    if (!ok || !blob_valid(fresh.raw)) settings_defaults(&fresh);
+    // A read error aborts, as the original: starting fresh then would write defaults over every
+    // other field. The original also aborts on an invalid store, but it wrote defaults at boot
+    // (core1 init, 0x10000298), which this tree does not, so a card or flash that never held
+    // settings (sd_read_file creates the file) would refuse every field: start one.
+    if (!ok) return;
+    if (!blob_valid(fresh.raw)) settings_defaults(&fresh);
 
     bool differs = true;
     if (field == SETTINGS_FIELD_BANK)
