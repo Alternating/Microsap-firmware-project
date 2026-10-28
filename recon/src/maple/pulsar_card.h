@@ -31,7 +31,8 @@ void pulsar_card_attach(void);
 void pulsar_card_release(void);
 // Nothing pending and nothing taken that the link has not settled: the buffer can go.
 bool pulsar_card_drained(void);
-// A Pulsar owns the link: from its first STATUS until the link goes or fails (core0 sets it).
+// A Pulsar owns the link and has a VMU docked: from a STATUS saying so until one that does not,
+// or until the link goes or fails (core0 sets it).
 bool pulsar_card_linked(void);
 bool pulsar_card_present(void);
 // One frame for slot 2, [len][src][dst][cmd] + payload (host order). Fills out with a reply

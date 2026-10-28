@@ -308,7 +308,7 @@ static void store_on_status(pl_link_t *l)
     }
     if (l != s_store.owner) return;
     s_store.budget = l->queue_free < PULSAR_QUEUE_SLOTS ? l->queue_free : PULSAR_QUEUE_SLOTS;
-    pulsar_card_set_linked(true);                           // core1 may move slot 2 to it
+    pulsar_card_set_linked(l->flags & PULSAR_FLAG_VMU);     // core1 may move slot 2 to its VMU
     store_sync();
     if (!pulsar_card_available()) return;                   // the SD card holds slot 2
     s_store.full = false;                                   // queue_free may have moved
