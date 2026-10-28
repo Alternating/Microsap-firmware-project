@@ -195,9 +195,10 @@ static void slot2_move(uint8_t *vmu_buf, uint8_t *vmu_buf2, bool linked, uint32_
         pulsar_card_attach();            // the link pulls it; the bit follows presence
     } else {
         // The push drains first. With no link nothing can drain: only the chord gets here then,
-        // since slot2_target holds the slot while the card is owed blocks, and they are dropped.
+        // since slot2_target holds the slot while the card is owed blocks. A drop gets the same
+        // grace as there, so a reconnect inside it still delivers them; after it they are dropped.
         if (!pulsar_card_drained()) {
-            if (linked) return;
+            if (linked || time_us_64() - s_slot2_lost < SLOT2_GRACE_US) return;
             puts("[slot2] the Pulsar is gone: blocks owed to its card dropped");
         }
         pulsar_card_release();
