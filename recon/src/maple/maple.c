@@ -228,7 +228,7 @@ static void slot2_service(uint8_t *vmu_buf, uint8_t *vmu_buf2, uint32_t idle_fra
                                             !pulsar_card_drained());
         if (want != s_slot2) slot2_move(vmu_buf, vmu_buf2, linked, idle_frames);
         else s_slot2_moving = false;     // a switch called off before it moved anything
-    }
+    } else s_slot2_moving = false;       // the card failed mid-switch: slot 2 stays where it is
     // Down from a switch's first step to its last; until a switch begins (it waits for the bus to
     // go idle), it follows the card as ever.
     if (!s_slot2_moving) slot2_set_bit(s_slot2 == SLOT2_SD ? g_dual_vmu : pulsar_card_present());
