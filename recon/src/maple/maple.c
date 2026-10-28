@@ -28,6 +28,8 @@
 #include "maple.h"
 #include "maple.pio.h"   // generated: maple_tx_program / maple_rx_program
 #include "maple_frames.h"   // decoded Maple response headers
+#include "pulsar_card.h"
+#include "bt/pulsar_lcd.h"
 
 // Controller GET_CONDITION reply: DATA_TRANSFER (cmd 8), 3 words (func + 8-byte condition),
 // src AP 0x20 (main peripheral). Verified from the original: header DAT_10001b6c = 0x08002003.
@@ -58,7 +60,8 @@ volatile uint32_t g_maple_minfo_reqs;   // GET_MEDIA_INFO (storage) count
 uint8_t *g_vmu_image_dbg;               // debug window into the VMU image (set at core1 init)
 // @0x20001668: attached sub-peripheral mask (P2M_SUBPERIPH_*); also patches sender AP on TX
 uint8_t g_subperiph_mask;
-// true when controller slot 2 hosts a second (SD-backed) VMU instead of the rumble pack
+// true when controller slot 2 hosts a second (SD-backed) VMU instead of the rumble pack; when
+// false, slot 2's buffer backs the VMU docked in a Pulsar instead (pulsar_card.c)
 static bool g_dual_vmu;
 // Rewrite a response header's source-AP byte (bits 8..15) to `src` (slot nibble: 0x01 / 0x02).
 #define VMU_HDR(base, src) (((uint32_t)(base) & 0xffff00ffu) | ((uint32_t)(src) << 8))
@@ -465,6 +468,10 @@ void maple_core1_main(void)
         g_subperiph_mask |= P2M_SUBPERIPH_RUMBLE; // slot-2 bit set; answered as a VMU below
         puts("[core1] slot 2: SD-backed VMU up (dual VMU; rumble disabled)");
     }
+    // Without the SD card, slot 2's buffer holds the VMU docked in a Pulsar, which the link
+    // fills once one connects. Before g_core1_ready: core0 starts Bluetooth only after it.
+    pulsar_card_init(g_dual_vmu ? NULL : vmu_buf2);
+    pulsar_lcd_init();
     usb_announce(/*DAT_10001b80*/ 0);
 
     // Settings load + custom-map load now live on core0 in control_init(); core1 just loads the
@@ -525,16 +532,24 @@ void maple_core1_main(void)
     bool autosave_armed = false;
 
     for (;;) {
-        // (a) pending VMU bank switch (debounced DAT_10001bc4 µs)
+        // (a) pending VMU bank switch, as the original: once the bus has been idle 100 frames,
+        //     take slot 1's VMU off the bus so the console sees the card removed and drops its
+        //     cached directory, wait DAT_1000217c (300 ms), switch, then put the card back.
+        //     The original also saved the bank to the settings blob and restored it at boot;
+        //     this tree restores nothing, so it saves nothing.
         if (g_bank_switch_req == 0) {
             // (b) SD flush tick: after >99 frames idle-ish, flush dirty VMU blocks
             //     (raw: if (*DAT_10001bc0 && frames>99) { vmu_flush_dirty(); hotplug_tick(); })
-        } else if (/* debounce deadline reached */ time_us_64() >= bank_debounce_deadline) {
+        } else if (bank_debounce_deadline == 0) {
+            if (frames_lo > 99) {
+                g_subperiph_mask &= ~P2M_SUBPERIPH_VMU;
+                bank_debounce_deadline = time_us_64() + 300000;
+            }
+        } else if (time_us_64() >= bank_debounce_deadline) {
             vmu_bank_cycle(vmu_buf, g_bank_switch_req == 1, 0, 0);
-            char b; settings_get(settings, 1, &b);
-            settings_set(settings, 8, /* gid flag according to b=='\n' check */ 0);
-            settings_save(settings, 1);
+            bank_debounce_deadline = 0;
             g_bank_switch_req = 0;
+            g_subperiph_mask |= P2M_SUBPERIPH_VMU;
         }
 
         // (c) layout switched? → rebuild controller device-info after a short delay
@@ -563,19 +578,37 @@ void maple_core1_main(void)
         const uint8_t *f = g_rx_buf;     // [len][src][dst][cmd]
         uint8_t len = f[0], dst = f[2], cmd = f[3];
         uint32_t func = *(const uint32_t *)(f + 4);   // first payload word (host order)
+        // Slot 2 without the SD card is the Pulsar's card while it is present. Its bit follows
+        // presence, so the console sees the card plugged in once pulled and pulled out when the
+        // Pulsar goes, never a card whose contents change underneath it.
+        bool to_pulsar = false;
+        if (!g_dual_vmu) {
+            if (pulsar_card_present()) g_subperiph_mask |= P2M_SUBPERIPH_RUMBLE;
+            else                       g_subperiph_mask &= ~P2M_SUBPERIPH_RUMBLE;
+            to_pulsar = (dst & 2) && (g_subperiph_mask & P2M_SUBPERIPH_RUMBLE);
+        }
         bool to_vmu    = (dst & 1) && (g_subperiph_mask & P2M_SUBPERIPH_VMU);
         bool to_vmu2   = (dst & 2) && g_dual_vmu;
-        bool to_rumble = (dst & 2) && !g_dual_vmu && (g_subperiph_mask & P2M_SUBPERIPH_RUMBLE);
+        bool to_rumble = (dst & 2) && !g_dual_vmu && !to_pulsar && (g_subperiph_mask & P2M_SUBPERIPH_RUMBLE);
         // Selected VMU instance for this frame (slot 1 internal, or slot 2 SD) + its src-AP
         // nibble for replies. vmu_buf2 is only valid when g_dual_vmu is set.
         uint8_t *vp   = to_vmu ? vmu_buf : (to_vmu2 ? vmu_buf2 : (uint8_t *)0);
         uint8_t  vsrc = (dst & 2) ? 0x02 : 0x01;
         maple_frame_t out = {0};
 
-        switch (cmd) {
+        if (to_pulsar) {
+            if (pulsar_card_handle(f, &out)) {
+                out.header = VMU_HDR(out.header, 0x02);
+                maple_tx_frame(&tx_ctx, &out);
+            }
+            // card traffic defers slot 1's flash flush, as the VMU arms below do
+            if (cmd == MAPLE_CMD_BLOCK_READ || cmd == MAPLE_CMD_GET_LAST_ERROR) frames_lo = 0;
+        } else switch (cmd) {
         case MAPLE_CMD_DEVICE_REQUEST:
             g_maple_dev_req++;
-            if (dst & 0x40) g_maple_port = dst >> 6;   // capture port addressing
+            // capture the port from a main-device request (bit 5, as the original's `<< 0x1a`
+            // test); bit 6 alone missed port A and port C, leaving replies addressed to B or D
+            if (dst & 0x20) g_maple_port = dst >> 6;
             if (!(dst & 3)) {                           // main device
                 out.header = MAPLE_HDR_DEVICE_STATUS_MAIN;   // cmd 5, 28 words (112B devinfo)
                 out.payload = g_devinfo_payload;
@@ -638,6 +671,9 @@ void maple_core1_main(void)
                 static uint8_t vmu_cond[8];
                 memset(vmu_cond, 0, sizeof vmu_cond);
                 vmu_cond[3] = (uint8_t)func;
+                if (func == MAPLE_FUNC_CLOCK)
+                    vmu_cond[4] = 0xff;     // timer buttons are active-low: console reads
+                                            // 0xFF000000, all released (as DreamPicoPort)
                 out.header = VMU_HDR(MAPLE_HDR_DATA_SHORT_VMU, vsrc);   // 0x08000102 (2 words)
                 out.payload = vmu_cond;
                 maple_tx_frame(&tx_ctx, &out);
@@ -700,6 +736,7 @@ cond_miss:;
             } else if (vp && func == MAPLE_FUNC_LCD) {
                 vmu_lcd_write(vp, *(const uint32_t *)(f + 8), f + 12, len - 2);
                 vmu_lcd_render_notify((void*)vp);
+                if (vp == vmu_buf) pulsar_lcd_frame(vp + 0x20000);  // vmu_state_t.lcd_fb
                 goto ack;
             } else if (to_rumble && func == MAPLE_FUNC_VIBRATION) {
                 rumble_set_block(0, 0);

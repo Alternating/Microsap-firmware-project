@@ -352,7 +352,8 @@ bluepad32; USB pads through TinyUSB host (HID) or tusb_xinput (XInput).
   (gamepad `0x08` | joystick `0x04` | keyboard `0x40`); widen it if a controller advertises a
   different class.
 - **BLE input latency = connection interval.** The firmware requests a fast 7.5–15 ms interval
-  at connect (local bluepad32 patch), but a peripheral may ignore it. Measure the real rate with
+  once the pad has been checked for the Pulsar's service (`bt/pulsar_link.c`; a Pulsar asks for
+  its own and gets none), but a peripheral may ignore it. Measure the real rate with
   the debug build's `bt N/s` / `age=` heartbeat fields during continuous stick motion: a healthy
   pad sustains 60–125/s; a slow one that ignores the request sits near 15/s.
 - **"PS3 clone" is a label, not a protocol.** Many cheap pads sold as DS3 clones are plain BLE
