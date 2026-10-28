@@ -23,7 +23,8 @@ static volatile uint32_t s_gen;          // bumped each time presence drops
 static uint32_t s_pending[8];            // one bit per block
 
 // Core1 only: the block being staged by BLOCK_WRITE.
-static uint8_t  s_stage[PULSAR_CARD_BLOCK];
+// Aligned: stage() writes it a word at a time, and an -Os build need not word-align a byte array.
+static uint8_t  s_stage[PULSAR_CARD_BLOCK] __attribute__((aligned(4)));
 static int      s_stage_blk = -1;
 static uint8_t  s_stage_phases;          // bit per phase received
 static uint32_t s_stage_gen;
