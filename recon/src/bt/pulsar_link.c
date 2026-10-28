@@ -130,8 +130,20 @@ static pl_link_t *link_for_handle(hci_con_handle_t con)
     return NULL;
 }
 
+// The fast BLE interval upstream asks every pad for: cheap pads negotiate a slow one (~75 ms,
+// ~13 reports/s, a felt delay), so ask for 7.5-15 ms, latency 0, 2 s supervision; a pad may
+// accept or ignore it. Sent once discovery has ruled the Pulsar out, never at HID setup: the
+// Pulsar asks for its own 8.75-11.25 ms about 500 ms into every connection, and this request
+// arriving alongside left it connected but silent about half the time (bench, 2026-10-26).
+// At HID setup a Pulsar in its Xbox profile cannot be told from an Xbox pad; its service can.
+static void request_fast_interval(hci_con_handle_t con)
+{
+    gap_request_connection_parameter_update(con, 6, 12, 0, 200);
+}
+
 static void fail(pl_link_t *l, const char *where, uint8_t code)
 {
+    if (!(l->have & HAVE_SVC)) request_fast_interval(l->con);   // no Pulsar service seen
     l->state = PL_FAILED;
     l->fail_where = where;
     l->fail_code = code;
@@ -525,6 +537,7 @@ static void gatt_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet,
             if (!(l->have & HAVE_SVC)) {
                 l->state = PL_NOT_PULSAR;
                 printf("[pulsar] 0x%04x has no HostService: not a Pulsar\n", l->con);
+                request_fast_interval(l->con);
                 break;
             }
             // HIDS already ran queries, so BTstack's automatic MTU exchange has happened.
@@ -609,7 +622,11 @@ void pulsar_link_attach(uni_hid_device_t *d)
     pl_link_t *l = NULL;
     for (int i = 0; i < CONFIG_BLUEPAD32_MAX_DEVICES && !l; i++)
         if (s_links[i].state == PL_IDLE) l = &s_links[i];
-    if (!l) { printf("[pulsar] no free link slot for 0x%04x\n", d->conn.handle); return; }
+    if (!l) {
+        printf("[pulsar] no free link slot for 0x%04x\n", d->conn.handle);
+        request_fast_interval(d->conn.handle);
+        return;
+    }
     memset(l, 0, sizeof *l);
     l->con = d->conn.handle;
     bd_addr_copy(l->addr, d->conn.btaddr);

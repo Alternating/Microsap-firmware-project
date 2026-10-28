@@ -8,7 +8,8 @@
 #include "uni.h"
 
 // Called from the platform's on_device_ready for a BLE device. Discovery decides whether it is
-// a Pulsar: a device without the service is left alone (state "not-pulsar").
+// a Pulsar: a device without the service gets upstream's fast-interval request and is otherwise
+// left alone (state "not-pulsar").
 void pulsar_link_attach(uni_hid_device_t *d);
 // Called from the platform's on_device_disconnected; drops the listener and any queued query.
 void pulsar_link_detach(uni_hid_device_t *d);
