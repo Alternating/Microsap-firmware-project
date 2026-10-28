@@ -93,6 +93,7 @@ int main(void)
         usb_host_task();                  // 0x1000726c
         controller_poll();                // 0x100002b0 (reads pads, runs custom+layout mapping)
         rumble_tick();                    // 0x10007c70 (forward DC vibration to USB/BT pad)
+        slot2_tick();                     // slot 2's SD-or-Pulsar choice
         oled_service();                   // present a frame core1 or the layout toggle kicked
         sd_write_queue_service();         // write one VMU page core1 queued for the SD card
 
