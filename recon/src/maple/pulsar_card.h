@@ -74,7 +74,8 @@ int  pulsar_card_compare(uint8_t blk, unsigned phase, const uint8_t data[PULSAR_
 // The write queue: block numbers, never bytes; the bytes are read from the image as the block
 // goes, so a block written twice before it drains goes once, newest. Data blocks (0-240)
 // first; metadata only when no data block is pending and none is in flight unconfirmed, so a
-// FAT or directory never reaches the card ahead of the data it points at.
+// FAT or directory never reaches the card ahead of the data it points at, and then in the
+// order the console last committed each block.
 // Snapshot the next block to push into out and clear its pending bit. A commit to it after this
 // sets the bit again, so the newer bytes go too. -1 if nothing may go.
 int  pulsar_card_take(bool data_in_flight, uint8_t out[PULSAR_CARD_BLOCK]);

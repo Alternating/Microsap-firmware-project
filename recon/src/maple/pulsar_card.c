@@ -27,6 +27,8 @@ static volatile bool s_present;
 static volatile uint32_t s_gen;          // bumped each time presence drops
 static uint32_t s_pending[8];            // one bit per block
 static bool s_out;                       // a block taken and not yet settled by the link
+static uint32_t s_commits;               // commit count: the metadata blocks' order
+static uint32_t s_meta_at[PULSAR_CARD_ROOT - PULSAR_CARD_DIR_FIRST + 1];  // each one's latest
 
 // Core1 only: the block being staged by BLOCK_WRITE.
 // Aligned: stage() writes it a word at a time, and an -Os build need not word-align a byte array.
@@ -128,6 +130,7 @@ static bool commit(uint32_t loc)
     if (s_present && s_stage_gen == s_gen) {     // not a block for a card that has since left
         memcpy(&s_card->image[blk * PULSAR_CARD_BLOCK], s_stage, PULSAR_CARD_BLOCK);
         s_pending[blk >> 5] |= 1u << (blk & 31);
+        if (pulsar_card_is_metadata((uint8_t)blk)) s_meta_at[blk - PULSAR_CARD_DIR_FIRST] = ++s_commits;
         ok = true;
     }
     unlock(irq);
@@ -298,8 +301,17 @@ int pulsar_card_take(bool data_in_flight, uint8_t out[PULSAR_CARD_BLOCK])
         if (m) blk = w * 32 + __builtin_ctz(m);
     }
     if (blk < 0 && !data_in_flight) {
-        uint32_t m = s_pending[7] & ~DATA_BITS_W7;   // directory up, then FAT, then root
-        if (m) blk = 7 * 32 + __builtin_ctz(m);
+        // Metadata in the order the console committed it, each block at its latest commit: a push
+        // cut short leaves the card as the console's own write cut at the same point would, where
+        // a fixed directory-then-FAT order could leave an entry over free blocks.
+        uint32_t best = UINT32_MAX;
+        for (uint32_t m = s_pending[7] & ~DATA_BITS_W7; m; m &= m - 1) {
+            int b = 7 * 32 + __builtin_ctz(m);
+            if (s_meta_at[b - PULSAR_CARD_DIR_FIRST] < best) {
+                best = s_meta_at[b - PULSAR_CARD_DIR_FIRST];
+                blk = b;
+            }
+        }
     }
     if (blk >= 0) {
         s_pending[blk >> 5] &= ~(1u << (blk & 31));
