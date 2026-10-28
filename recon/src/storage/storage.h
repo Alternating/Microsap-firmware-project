@@ -11,13 +11,14 @@
 // ---- settings blob (256 bytes; flash slot 0x3FC000 = the picotool-loadable slot) ----
 // [0x00] bank; [0x01..0x91] mapping table (28 outputs × {out_id, 4 input slots} + options
 // u32 at +0x8c + autoload byte at +0x90); [0x92] u32 field mask; [0x96] gameid[12];
-// [0xa2] gameid_mode; [0xff] checksum.
+// [0xa2] gameid_mode; [0xa3] slot 2's backing (ours); [0xff] checksum.
 typedef struct { uint8_t raw[256]; } p2m_settings_t;
 
 #define SETTINGS_FIELD_BANK        1u
 #define SETTINGS_FIELD_MAPPING     2u
 #define SETTINGS_FIELD_GAMEID      4u
 #define SETTINGS_FIELD_GAMEID_MODE 8u
+#define SETTINGS_FIELD_SLOT2      16u   // slot2.h's SLOT2_CHOICE_*: SD or the Pulsar's VMU
 #define MAPPING_SIZE 0x91
 #define SETTINGS_FLASH_OFFSET 0x3FC000u
 
