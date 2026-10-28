@@ -25,6 +25,8 @@
 // --- error / no-data replies ---
 #define MAPLE_HDR_ERR_MAIN          0xfc002000u  // cmd fc (function/file error), main
 #define MAPLE_HDR_ERR_SUB           0xfc000200u  // cmd fc, sub-peripheral
+#define MAPLE_HDR_FUNC_UNSUPP_SUB   0xfe000200u  // cmd fe, function not supported, sub
+#define MAPLE_HDR_UNKNOWN_CMD_SUB   0xfd000200u  // cmd fd, unknown command, sub
 
 // --- payload buffer globals the dispatch points each frame at (RAM, runtime-built) ---
 // g_devinfo_payload   @0x20006b20  controller DEVICE_STATUS body (112B, rebuilt on layout switch)

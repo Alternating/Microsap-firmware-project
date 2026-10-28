@@ -12,6 +12,7 @@
 #include "btstack.h"
 #include "pico/cyw43_arch.h"
 #include "pulsar_link.h"
+#include "maple/pulsar_card.h"
 
 #ifndef CONFIG_BLUEPAD32_MAX_DEVICES
 #define CONFIG_BLUEPAD32_MAX_DEVICES 4
@@ -27,9 +28,24 @@ static const uint8_t PULSAR_SVC_UUID[16] = {
 #define HAVE_SVC         0x01
 #define HAVE_ALL_CHRS    ((1 << PULSAR_CHR_LCD) | (1 << PULSAR_CHR_UP) | (1 << PULSAR_CHR_DOWN))
 
+#define PULSAR_OP_READ       0x01   // down: [01, blk]
+#define PULSAR_OP_WRITE      0x02   // down: [02, blk, phase, seq] + 128 B
 #define PULSAR_OP_STATUS_REQ 0x03   // down: [03]
+#define PULSAR_OP_DATA       0x81   // up: [81, blk, phase, result] + 128 B, or 4 B when result != 0
+#define PULSAR_OP_ACK        0x82   // up: [82, blk, seq, result]
 #define PULSAR_OP_STATUS     0x83   // up: [83, proto, flags, queue_free, epoch u32 LE, card u32 LE]
+#define PULSAR_OP_WRITTEN    0x84   // up: [84, blk, seq, result]
 #define PULSAR_STATUS_LEN    12
+#define PULSAR_FLAG_VMU      0x01
+#define PULSAR_RES_OK        0
+#define PULSAR_RES_FULL      1
+#define PULSAR_RES_FAILED    4
+#define PULSAR_RES_SUPERSEDED 6
+#define PULSAR_QUEUE_SLOTS   8      // the Pulsar's staging queue
+#define PULSAR_TICK_MS       10     // the store and LCD service period on the owning link
+#define PULSAR_READ_RETRY_MS 2000   // a READ with no DATA since: resend (refused if still held)
+#define PULSAR_ACK_RETRY_MS  500    // a WRITE with no ACK: resend the same (blk, seq)
+#define PULSAR_READ_TRIES    3      // DATA … FAILED this often for one block ends the pull
 #define PULSAR_WRITE_RETRY_MS 5     // STATUS? retry period while GATT_CLIENT_BUSY
 #define PULSAR_WRITE_TRIES    200   // ~1 s of busy before it counts as a failure
 #define PULSAR_STORAGE_MTU   135    // 132-byte DATA/WRITE + ATT header; the spec says do not use
@@ -49,6 +65,7 @@ typedef enum {
 typedef struct {
     pl_state_t state;
     hci_con_handle_t con;
+    bd_addr_t addr;                                 // the peer, which the card's session is bound to
     gatt_client_service_t svc;
     gatt_client_characteristic_t chr_lcd, chr_up, chr_down;
     uint8_t have;                                   // HAVE_SVC | 1 << PULSAR_CHR_*
@@ -68,6 +85,39 @@ typedef struct {
 } pl_link_t;
 
 static pl_link_t s_links[CONFIG_BLUEPAD32_MAX_DEVICES];
+
+// The card's pull and push (pulsar_card.h), on the one link that owns it: the first Pulsar to
+// report a STATUS. One card, so one store; a second Pulsar gets no card and no screen.
+typedef struct {
+    pl_link_t *owner;
+    btstack_timer_source_t tick;
+    // The generation the image and the queue belong to: the Pulsar it came from and its STATUS
+    // epoch. card is the fingerprint last reported, for the log only.
+    bool sess, pulled;
+    bd_addr_t peer;
+    uint32_t epoch, card;
+    bool want_status;       // a STATUS? still to send, retried from the tick while busy
+    bool gave_up;           // a block's READ failed every try: no re-pull until a new generation
+    // Pull: blocks to READ in order, one outstanding.
+    bool pulling, read_out;
+    uint8_t order[256];
+    uint16_t n, i;
+    uint8_t phases, tries;
+    uint32_t read_ms;
+    // Push: one block going out (four WRITE phases, then its ACK), and the blocks acked but not
+    // yet WRITTEN, which hold the Pulsar's queue slots.
+    bool sending, full;
+    uint8_t blk, seq, next_seq, phase;
+    uint32_t sent_ms;
+    uint8_t buf[PULSAR_CARD_BLOCK];
+    struct { uint8_t blk, seq; } flight[PULSAR_QUEUE_SLOTS];
+    unsigned nflight;
+    uint32_t written, failed;
+} pl_store_t;
+
+static pl_store_t s_store;
+
+static void store_tick(btstack_timer_source_t *ts);
 
 static void request_next_query(pl_link_t *l);
 static void gatt_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size);
@@ -94,6 +144,274 @@ static bool is_pulsar_chr(const gatt_client_characteristic_t *c, uint8_t which)
            memcmp(c->uuid128 + 4, PULSAR_SVC_UUID + 4, 12) == 0;
 }
 
+// ---- The store: the card's pull and push -----------------------------------------
+// Session rule, decided before the pull: a STATUS from the same Pulsar with the same epoch keeps
+// the image and the pending queue (a reconnect while the Pulsar was still draining); anything
+// else discards both before a fresh pull. The epoch moves on every dock, undock, link loss, power
+// loss and failed write (host_integration.md, "Generations"), so within one Pulsar it alone says
+// "same card". Not the fingerprint: it hashes blocks 255 and 254, so our own FAT and root writes
+// move it every save, and the Pulsar announces that before their WRITTEN. Epochs are per device,
+// hence the peer address.
+
+static uint8_t store_write(pl_link_t *l, const uint8_t *v, uint16_t len)
+{
+    return gatt_client_write_value_of_characteristic_without_response(
+        l->con, l->chr_down.value_handle, len, (uint8_t *)v);
+}
+
+static void store_forget_push(void)
+{
+    s_store.sending = false;
+    s_store.nflight = 0;
+    s_store.full = false;
+}
+
+// Root, FAT, directory from the top, then whatever the FAT says is in use.
+static void pull_start(void)
+{
+    pulsar_card_begin_pull();
+    pulsar_card_discard();
+    store_forget_push();
+    s_store.n = 0;
+    s_store.order[s_store.n++] = PULSAR_CARD_ROOT;
+    s_store.order[s_store.n++] = PULSAR_CARD_FAT;
+    for (int b = PULSAR_CARD_FAT - 1; b >= (int)PULSAR_CARD_DIR_FIRST; b--) s_store.order[s_store.n++] = (uint8_t)b;
+    s_store.i = 0;
+    s_store.phases = 0;
+    s_store.tries = 0;
+    s_store.read_out = false;
+    s_store.pulling = true;
+    s_store.pulled = false;
+    printf("[pulsar] card: pull started (epoch %lu)\n", (unsigned long)s_store.epoch);
+}
+
+// Free FAT entries read 0xfffc; entries are little-endian u16 in image order.
+static void pull_add_used(void)
+{
+    pulsar_card_read(PULSAR_CARD_FAT, s_store.buf);
+    for (unsigned b = 0; b < PULSAR_CARD_DIR_FIRST; b++)
+        if (little_endian_read_16(s_store.buf, b * 2) != 0xfffc) s_store.order[s_store.n++] = (uint8_t)b;
+}
+
+// FNV-1a over 255 then 254, the Pulsar's card fingerprint: logged against its STATUS.
+static uint32_t card_fingerprint(void)
+{
+    uint32_t h = 0x811c9dc5u;
+    static const uint8_t blocks[2] = { PULSAR_CARD_ROOT, PULSAR_CARD_FAT };
+    for (int k = 0; k < 2; k++) {
+        pulsar_card_read(blocks[k], s_store.buf);
+        for (unsigned i = 0; i < PULSAR_CARD_BLOCK; i++) { h ^= s_store.buf[i]; h *= 0x01000193u; }
+    }
+    return h;
+}
+
+static void store_on_status(pl_link_t *l)
+{
+    if (!s_store.owner) {
+        s_store.owner = l;
+        btstack_run_loop_set_timer_handler(&s_store.tick, store_tick);
+        btstack_run_loop_set_timer_context(&s_store.tick, l);
+        btstack_run_loop_set_timer(&s_store.tick, PULSAR_TICK_MS);
+        btstack_run_loop_add_timer(&s_store.tick);
+        printf("[pulsar] 0x%04x owns the card\n", l->con);
+    }
+    if (l != s_store.owner) return;
+    if (!pulsar_card_available()) return;                   // the SD card holds slot 2
+    s_store.full = false;                                   // queue_free may have moved
+
+    if (!(l->flags & PULSAR_FLAG_VMU)) {                    // undocked: the card is gone
+        if (s_store.sess) printf("[pulsar] card: undocked, %u pending dropped\n", pulsar_card_pending());
+        pulsar_card_set_present(false);
+        pulsar_card_discard();
+        store_forget_push();
+        s_store.sess = s_store.pulling = s_store.pulled = false;
+        return;
+    }
+    bool same = s_store.sess && l->epoch == s_store.epoch && bd_addr_cmp(l->addr, s_store.peer) == 0;
+    s_store.card = l->card;
+    if (same) {
+        if (s_store.pulled) pulsar_card_set_present(true);  // reconnect: image and queue stand
+        else if (!s_store.pulling && !s_store.gave_up) pull_start();   // the last pull did not finish
+        return;
+    }
+    if (s_store.sess) printf("[pulsar] card: new generation, %u pending dropped\n", pulsar_card_pending());
+    s_store.sess = true;
+    s_store.gave_up = false;
+    s_store.epoch = l->epoch;
+    bd_addr_copy(s_store.peer, l->addr);
+    pull_start();
+}
+
+static void store_on_data(pl_link_t *l, const uint8_t *v, uint16_t len)
+{
+    if (l != s_store.owner || !s_store.pulling || len < 4) return;
+    uint8_t blk = v[1], phase = v[2], res = v[3];
+    if (blk != s_store.order[s_store.i]) return;
+    if (res != PULSAR_RES_OK) {
+        if (res == PULSAR_RES_FAILED) {
+            // The Pulsar has already spent its own attempts, and the generation stands. A few more
+            // of ours, then the pull stops for this generation: a card that cannot be read stays
+            // absent rather than re-pulling for ever. A re-dock or a new link tries again.
+            s_store.phases = 0;
+            s_store.read_out = false;                       // the tick resends it at once
+            if (++s_store.tries < PULSAR_READ_TRIES) {
+                printf("[pulsar] card: READ %u failed, try %u\n", blk, s_store.tries + 1);
+                return;
+            }
+            printf("[pulsar] card: READ %u failed %u times, pull given up\n", blk, s_store.tries);
+            s_store.pulling = false;
+            s_store.gave_up = true;
+            return;
+        }
+        // NO_VMU and DISCARDED come with a new generation: let the next STATUS start over, and
+        // ask for it in case none is on its way, until the request actually goes.
+        printf("[pulsar] card: READ %u result %u, pull stopped\n", blk, res);
+        s_store.pulling = false;
+        s_store.sess = false;
+        s_store.want_status = true;
+        return;
+    }
+    if (len != 4 + PULSAR_CARD_PHASE || phase > 3) return;
+    pulsar_card_fill(blk, phase, v + 4);
+    s_store.phases |= 1u << phase;
+    s_store.read_ms = btstack_run_loop_get_time_ms();
+    if (s_store.phases != 0xf) return;
+
+    s_store.phases = 0;
+    s_store.read_out = false;
+    s_store.tries = 0;
+    s_store.i++;
+    if (s_store.i == 2)
+        printf("[pulsar] card: fingerprint %08lx, STATUS says %08lx\n",
+               (unsigned long)card_fingerprint(), (unsigned long)l->card);
+    if (s_store.i == PULSAR_CARD_ROOT - PULSAR_CARD_DIR_FIRST + 1) pull_add_used();
+    if (s_store.i < s_store.n) return;
+    s_store.pulling = false;
+    s_store.pulled = true;
+    pulsar_card_set_present(true);
+    printf("[pulsar] card: pulled %u blocks, present\n", s_store.n);
+}
+
+static void store_on_ack(pl_link_t *l, const uint8_t *v, uint16_t len)
+{
+    if (l != s_store.owner || len != 4 || !s_store.sending) return;
+    if (v[1] != s_store.blk || v[2] != s_store.seq) return;
+    s_store.sending = false;
+    if (v[3] == PULSAR_RES_OK) {
+        s_store.flight[s_store.nflight].blk = s_store.blk;
+        s_store.flight[s_store.nflight].seq = s_store.seq;
+        s_store.nflight++;
+        return;
+    }
+    // FULL, NO_VMU, BAD: put it back and wait for a WRITTEN or a STATUS before the next.
+    printf("[pulsar] card: WRITE %u seq %u result %u\n", s_store.blk, s_store.seq, v[3]);
+    pulsar_card_requeue(s_store.blk);
+    s_store.full = true;
+}
+
+static void store_on_written(pl_link_t *l, const uint8_t *v, uint16_t len)
+{
+    if (l != s_store.owner || len != 4) return;
+    for (unsigned k = 0; k < s_store.nflight; k++) {
+        if (s_store.flight[k].blk != v[1] || s_store.flight[k].seq != v[2]) continue;
+        s_store.flight[k] = s_store.flight[--s_store.nflight];
+        s_store.full = false;
+        if (v[3] == PULSAR_RES_OK) {
+            s_store.written++;
+        } else if (v[3] != PULSAR_RES_SUPERSEDED) {         // superseded: a newer seq carries it
+            s_store.failed++;
+            printf("[pulsar] card: WRITTEN %u seq %u result %u, requeued\n", v[1], v[2], v[3]);
+            pulsar_card_requeue(v[1]);
+        }
+        return;
+    }
+    // Not ours: a WRITTEN for a session already discarded.
+}
+
+static bool data_in_flight(void)
+{
+    if (s_store.sending && !pulsar_card_is_metadata(s_store.blk)) return true;
+    for (unsigned k = 0; k < s_store.nflight; k++)
+        if (!pulsar_card_is_metadata(s_store.flight[k].blk)) return true;
+    return false;
+}
+
+static void pull_service(pl_link_t *l, uint32_t now)
+{
+    if (s_store.read_out && now - s_store.read_ms < PULSAR_READ_RETRY_MS) return;
+    // A READ is held while the pad is in use, and refused in silence while one is outstanding,
+    // so resending one that has seen no DATA for a while costs nothing and recovers a lost one.
+    uint8_t rd[2] = { PULSAR_OP_READ, s_store.order[s_store.i] };
+    if (store_write(l, rd, sizeof rd) != ERROR_CODE_SUCCESS) return;   // busy: next tick
+    s_store.read_out = true;
+    s_store.read_ms = now;
+}
+
+// A (blk, seq) the Pulsar may still hold must not be reused: it would take the new bytes for a
+// retry of the old ones, ACK them and write nothing.
+static bool seq_outstanding(uint8_t blk, uint8_t seq)
+{
+    for (unsigned k = 0; k < s_store.nflight; k++)
+        if (s_store.flight[k].blk == blk && s_store.flight[k].seq == seq) return true;
+    return false;
+}
+
+// A block goes out whole: snapshotted under the card's lock by pulsar_card_take, then four
+// phases from that copy. A console write to it meanwhile marks it pending again.
+static void push_service(pl_link_t *l, uint32_t now)
+{
+    if (!s_store.sending) {
+        if (s_store.full || s_store.nflight >= PULSAR_QUEUE_SLOTS) return;
+        int b = pulsar_card_take(data_in_flight(), s_store.buf);
+        if (b < 0) return;
+        s_store.sending = true;
+        s_store.blk = (uint8_t)b;
+        do s_store.seq = s_store.next_seq++; while (seq_outstanding(s_store.blk, s_store.seq));
+        s_store.phase = 0;
+    }
+    if (s_store.phase == 4) {
+        if (now - s_store.sent_ms < PULSAR_ACK_RETRY_MS) return;
+        s_store.phase = 0;                  // no ACK: the same (blk, seq) again, which is safe
+    }
+    while (s_store.phase < 4) {
+        uint8_t w[4 + PULSAR_CARD_PHASE] = { PULSAR_OP_WRITE, s_store.blk, s_store.phase, s_store.seq };
+        memcpy(w + 4, s_store.buf + s_store.phase * PULSAR_CARD_PHASE, PULSAR_CARD_PHASE);
+        if (store_write(l, w, sizeof w) != ERROR_CODE_SUCCESS) return;  // busy: next tick
+        s_store.phase++;
+    }
+    s_store.sent_ms = now;
+}
+
+static void store_tick(btstack_timer_source_t *ts)
+{
+    pl_link_t *l = btstack_run_loop_get_timer_context(ts);
+    btstack_run_loop_set_timer(ts, PULSAR_TICK_MS);
+    btstack_run_loop_add_timer(ts);
+    if (l->state != PL_READY) return;
+    uint32_t now = btstack_run_loop_get_time_ms();
+    if (s_store.want_status) {
+        uint8_t op = PULSAR_OP_STATUS_REQ;
+        if (store_write(l, &op, 1) == ERROR_CODE_SUCCESS) s_store.want_status = false;
+    }
+    if (s_store.pulling) pull_service(l, now);
+    else if (s_store.pulled && (l->flags & PULSAR_FLAG_VMU)) push_service(l, now);
+}
+
+// The owner's link dropped. The card leaves the bus; the session, the image and what is still
+// owed stay for a reconnect to the same generation. Acked blocks with no WRITTEN yet have an
+// unknown fate: pending again, so they are resent (the same bytes, harmless) if it is the same.
+static void store_drop(void)
+{
+    btstack_run_loop_remove_timer(&s_store.tick);
+    pulsar_card_set_present(false);
+    if (s_store.sending) pulsar_card_requeue(s_store.blk);
+    for (unsigned k = 0; k < s_store.nflight; k++) pulsar_card_requeue(s_store.flight[k].blk);
+    store_forget_push();
+    s_store.pulling = false;
+    s_store.want_status = false;        // the next link asks for STATUS as it subscribes
+    s_store.owner = NULL;
+}
+
 static void decode_status(pl_link_t *l, const uint8_t *v, uint16_t len)
 {
     if (len != PULSAR_STATUS_LEN) {
@@ -110,6 +428,7 @@ static void decode_status(pl_link_t *l, const uint8_t *v, uint16_t len)
            "queue_free=%u epoch=%lu card=%08lx\n",
            l->proto, l->flags, l->flags & 1, (l->flags >> 1) & 1, (l->flags >> 2) & 1,
            (l->flags >> 3) & 1, l->queue_free, (unsigned long)l->epoch, (unsigned long)l->card);
+    store_on_status(l);
 }
 
 // Separate listener: BTstack filters on connection and value handle; checked again here.
@@ -124,11 +443,15 @@ static void notify_handler(uint8_t packet_type, uint16_t channel, uint8_t *packe
     const uint8_t *v = gatt_event_notification_get_value(packet);
     uint16_t len = gatt_event_notification_get_value_length(packet);
     if (len == 0) return;
-    if (v[0] == PULSAR_OP_STATUS) {
-        decode_status(l, v, len);
-    } else {
+    switch (v[0]) {
+    case PULSAR_OP_STATUS:  decode_status(l, v, len); break;
+    case PULSAR_OP_DATA:    store_on_data(l, v, len); break;
+    case PULSAR_OP_ACK:     store_on_ack(l, v, len); break;
+    case PULSAR_OP_WRITTEN: store_on_written(l, v, len); break;
+    default:
         l->other_count++;
         printf("[pulsar] notify op=0x%02x len=%u\n", v[0], len);
+        break;
     }
 }
 
@@ -285,6 +608,7 @@ void pulsar_link_attach(uni_hid_device_t *d)
     if (!l) { printf("[pulsar] no free link slot for 0x%04x\n", d->conn.handle); return; }
     memset(l, 0, sizeof *l);
     l->con = d->conn.handle;
+    bd_addr_copy(l->addr, d->conn.btaddr);
     l->state = PL_W4_SERVICE;
     printf("[pulsar] attach: handle 0x%04x vid=%04x pid=%04x, discovering HostService\n",
            l->con, d->vendor_id, d->product_id);
@@ -301,6 +625,7 @@ void pulsar_link_detach(uni_hid_device_t *d)
     if (l->listening) gatt_client_stop_listening_for_characteristic_value_updates(&l->listener);
     (void)gatt_client_remove_gatt_query(&l->query, l->con);   // no-op if not queued
     btstack_run_loop_remove_timer(&l->write_retry);            // no-op if not armed
+    if (l == s_store.owner) store_drop();
     printf("[pulsar] detach: handle 0x%04x (state %d, %lu STATUS, %lu other)\n",
            l->con, l->state, (unsigned long)l->status_count, (unsigned long)l->other_count);
     memset(l, 0, sizeof *l);
@@ -310,8 +635,9 @@ void pulsar_link_detach(uni_hid_device_t *d)
 // snapshot the one link worth showing under the async-context lock, format after release.
 const char *pulsar_link_heartbeat(void)
 {
-    static char buf[72];
+    static char buf[160];
     pl_link_t snap;
+    struct { bool pulling, pulled; uint16_t i, n; unsigned nflight; uint32_t written, failed; } st;
     int rank_best = 0;                 // 1 not-pulsar, 2 failed, 3 discovering, 4 ready
     async_context_t *ctx = cyw43_arch_async_context();
     if (!ctx) return "none";           // cyw43 init failed: bt_init returned, nothing attaches
@@ -327,6 +653,9 @@ const char *pulsar_link_heartbeat(void)
         }
         if (rank > rank_best) { rank_best = rank; snap = s_links[i]; }
     }
+    st.pulling = s_store.pulling; st.pulled = s_store.pulled;       // not the block buffer:
+    st.i = s_store.i; st.n = s_store.n; st.nflight = s_store.nflight; // core0's stack is 4 KB
+    st.written = s_store.written; st.failed = s_store.failed;
     async_context_release_lock(ctx);
 
     switch (rank_best) {
@@ -335,11 +664,19 @@ const char *pulsar_link_heartbeat(void)
     case 2:
         snprintf(buf, sizeof buf, "fail:%s/0x%02x", snap.fail_where, snap.fail_code);
         return buf;
-    case 4:
-        snprintf(buf, sizeof buf, "ready mtu=%u st=f:%02x q:%u ep:%lu card:%08lx n=%lu",
+    case 4: {
+        char card[48];
+        if (st.pulling)     snprintf(card, sizeof card, "pull %u/%u", st.i, st.n);
+        else if (st.pulled && (snap.flags & PULSAR_FLAG_VMU))
+            snprintf(card, sizeof card, "on q%u f%u w%lu x%lu c%lu/%lu", pulsar_card_pending(),
+                     st.nflight, (unsigned long)st.written, (unsigned long)st.failed,
+                     (unsigned long)g_pulsar_card_commits, (unsigned long)g_pulsar_card_refused);
+        else                snprintf(card, sizeof card, "off");
+        snprintf(buf, sizeof buf, "ready mtu=%u st=f:%02x q:%u ep:%lu card:%08lx n=%lu | card %s",
                  snap.mtu, snap.flags, snap.queue_free, (unsigned long)snap.epoch,
-                 (unsigned long)snap.card, (unsigned long)snap.status_count);
+                 (unsigned long)snap.card, (unsigned long)snap.status_count, card);
         return buf;
+    }
     default:
         snprintf(buf, sizeof buf, "discover:%d", snap.state);
         return buf;
