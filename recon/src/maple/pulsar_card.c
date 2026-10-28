@@ -13,14 +13,20 @@
 #include "vmu.h"
 #include "pulsar_card.h"
 
-// Slot 2's buffer while no SD card holds it; NULL otherwise. RAM has no room for a third image.
+// Slot 2's buffer. The card reaches it only while attached: otherwise it is the SD card's VMU.
+// RAM has no room for a third image.
 static vmu_state_t *s_card;
 
-// The image, s_present and s_pending are under s_lock, held for one memcpy at a time.
+// The image and everything below are under s_lock, held for one memcpy at a time.
 static spin_lock_t *s_lock;
+static volatile bool s_attached;
+static volatile uint32_t s_attachment;   // bumped on every attach and release
+static uint32_t s_pull_attachment;       // the attachment the last pull began on
+static volatile bool s_linked;
 static volatile bool s_present;
 static volatile uint32_t s_gen;          // bumped each time presence drops
 static uint32_t s_pending[8];            // one bit per block
+static bool s_out;                       // a block taken and not yet settled by the link
 
 // Core1 only: the block being staged by BLOCK_WRITE.
 // Aligned: stage() writes it a word at a time, and an -Os build need not word-align a byte array.
@@ -58,6 +64,36 @@ void pulsar_card_init(void *image)
     s_card = image;
 }
 
+void pulsar_card_attach(void)
+{
+    uint32_t irq = lock();
+    s_attached = true;
+    s_attachment++;
+    unlock(irq);
+}
+
+void pulsar_card_release(void)
+{
+    uint32_t irq = lock();
+    if (s_present) s_gen++;
+    s_present = false;
+    s_attached = false;
+    s_attachment++;
+    memset(s_pending, 0, sizeof s_pending);
+    s_out = false;
+    unlock(irq);
+}
+
+bool pulsar_card_drained(void)
+{
+    uint32_t irq = lock();
+    bool owed = s_out;
+    for (int w = 0; w < 8; w++) owed |= s_pending[w] != 0;
+    unlock(irq);
+    return !owed;
+}
+
+bool pulsar_card_linked(void) { return s_linked; }
 bool pulsar_card_present(void) { return s_present; }
 
 // ---- core1 ----
@@ -184,11 +220,23 @@ bool pulsar_card_handle(const uint8_t *f, maple_frame_t *out)
 
 // ---- core0 ----
 
-bool pulsar_card_available(void) { return s_card != 0; }
+bool pulsar_card_available(void) { return s_attached; }
+uint32_t pulsar_card_attachment(void) { return s_attachment; }
+
+void pulsar_card_set_linked(bool linked)
+{
+    uint32_t irq = lock();
+    s_linked = linked;
+    unlock(irq);
+}
+
+// Under the lock, the pull's image is the attached one: not released since its pull began.
+static bool pulled_here(void) { return s_attached && s_attachment == s_pull_attachment; }
 
 void pulsar_card_set_present(bool present)
 {
     uint32_t irq = lock();
+    present = present && pulled_here();
     if (s_present && !present) s_gen++;
     s_present = present;
     unlock(irq);
@@ -200,23 +248,31 @@ void pulsar_card_begin_pull(void)
     if (s_present) s_gen++;
     s_present = false;
     memset(s_pending, 0, sizeof s_pending);
+    s_pull_attachment = s_attachment;
     unlock(irq);
-    // Outside the lock: absent, core1 checks s_present under it and never reaches the image.
-    memset(s_card->image, 0, sizeof s_card->image);
+    // A page at a time under the lock: core1 may release the buffer to the SD card at any moment,
+    // and its SD image must never come back with zeroed pages in it.
+    for (unsigned off = 0; off < sizeof s_card->image; off += 4096) {
+        irq = lock();
+        if (pulled_here()) memset(&s_card->image[off], 0, 4096);
+        unlock(irq);
+    }
 }
 
 void pulsar_card_fill(uint8_t blk, unsigned phase, const uint8_t data[PULSAR_CARD_PHASE])
 {
     uint32_t irq = lock();
-    memcpy(&s_card->image[blk * PULSAR_CARD_BLOCK + (phase & 3) * PULSAR_CARD_PHASE], data,
-           PULSAR_CARD_PHASE);
+    if (pulled_here())
+        memcpy(&s_card->image[blk * PULSAR_CARD_BLOCK + (phase & 3) * PULSAR_CARD_PHASE], data,
+               PULSAR_CARD_PHASE);
     unlock(irq);
 }
 
 void pulsar_card_read(uint8_t blk, uint8_t out[PULSAR_CARD_BLOCK])
 {
     uint32_t irq = lock();
-    memcpy(out, &s_card->image[blk * PULSAR_CARD_BLOCK], PULSAR_CARD_BLOCK);
+    if (s_attached) memcpy(out, &s_card->image[blk * PULSAR_CARD_BLOCK], PULSAR_CARD_BLOCK);
+    else            memset(out, 0, PULSAR_CARD_BLOCK);
     unlock(irq);
 }
 
@@ -235,15 +291,24 @@ int pulsar_card_take(bool data_in_flight, uint8_t out[PULSAR_CARD_BLOCK])
     if (blk >= 0) {
         s_pending[blk >> 5] &= ~(1u << (blk & 31));
         memcpy(out, &s_card->image[blk * PULSAR_CARD_BLOCK], PULSAR_CARD_BLOCK);
+        s_out = true;
     }
     unlock(irq);
     return blk;
 }
 
+void pulsar_card_settled(void)
+{
+    uint32_t irq = lock();
+    s_out = false;
+    unlock(irq);
+}
+
+// Released, the card has no image to owe a block from.
 void pulsar_card_requeue(uint8_t blk)
 {
     uint32_t irq = lock();
-    s_pending[blk >> 5] |= 1u << (blk & 31);
+    if (s_attached) s_pending[blk >> 5] |= 1u << (blk & 31);
     unlock(irq);
 }
 

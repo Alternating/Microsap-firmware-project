@@ -1,10 +1,11 @@
 // pulsar_card.h — the VMU docked in a Pulsar, as a storage-only card in controller slot 2.
 // A card, not a mirror: the console reads and writes a 128 KiB RAM image; the BLE link
 // (pulsar_link.c) pulls it from the physical VMU at connect and pushes committed blocks back.
-// The image is slot 2's buffer, which is free while no SD card holds slot 2 (maple.c). Two cores
-// touch it: core1 answers Maple from it, core0 fills it and reads blocks to push. Every touch is
-// one memcpy under one spinlock, never across a BLE call. Present only while link up, pull
-// complete and card docked: absent, the console sees no slot 2, never a broken card.
+// The image is slot 2's buffer, which the card holds only while attached: slot 2 is the SD card's
+// VMU or this one, never both (maple.c). Two cores touch it: core1 answers Maple from
+// it, core0 fills it and reads blocks to push. Every touch is one memcpy under one spinlock, never
+// across a BLE call. Present only while link up, pull complete and card docked: absent, the
+// console sees no slot 2, never a broken card.
 #ifndef P2M_PULSAR_CARD_H
 #define P2M_PULSAR_CARD_H
 
@@ -19,10 +20,19 @@
 #define PULSAR_CARD_ROOT       255u
 
 // ---- core1 ----
-// Claims the lock; before core0 starts Bluetooth. image is slot 2's vmu_state_t, or NULL when
-// slot 2 is the SD card's: then the card is never present and the link pulls nothing. void *,
-// as maple.c declares the vmu functions over byte buffers and cannot include vmu.h.
+// Claims the lock; before core0 starts Bluetooth. image is slot 2's vmu_state_t, detached until
+// pulsar_card_attach. void *, as maple.c declares the vmu functions over byte buffers and cannot
+// include vmu.h.
 void pulsar_card_init(void *image);
+// Slot 2's buffer to the card, and back. Release is under the lock: once it returns no core0 call
+// reaches the buffer, and nothing pending, staged or present survives it, so release once
+// pulsar_card_drained() unless the loss is meant. Either one voids the link's session.
+void pulsar_card_attach(void);
+void pulsar_card_release(void);
+// Nothing pending and nothing taken that the link has not settled: the buffer can go.
+bool pulsar_card_drained(void);
+// A Pulsar owns the link: from its first STATUS until the link goes or fails (core0 sets it).
+bool pulsar_card_linked(void);
 bool pulsar_card_present(void);
 // One frame for slot 2, [len][src][dst][cmd] + payload (host order). Fills out with a reply
 // whose source is slot 1's; the engine sets slot 2's. Returns false when nothing is sent.
@@ -45,9 +55,12 @@ typedef struct __attribute__((packed)) {
 _Static_assert(sizeof(pulsar_card_identity_t) == 192, "ALL_STATUS is 48 words");
 
 // ---- core0, the BLE context ----
-bool pulsar_card_available(void);            // slot 2 is ours to fill (no SD card holds it)
+bool pulsar_card_available(void);            // attached: slot 2's buffer is ours to fill
+uint32_t pulsar_card_attachment(void);       // moves on every attach and release
+void pulsar_card_set_linked(bool linked);
 // Presence. Clearing it also drops core1's half-staged block, so a card re-docked mid-write
-// cannot commit a block built from two cards.
+// cannot commit a block built from two cards. Setting it holds only for a pull begun on this
+// attachment: a pull from before a release never shows the console the image that replaced it.
 void pulsar_card_set_present(bool present);
 // Start a pull: absent, image zeroed, nothing pending. The caller fills the image.
 void pulsar_card_begin_pull(void);
@@ -61,6 +74,9 @@ void pulsar_card_read(uint8_t blk, uint8_t out[PULSAR_CARD_BLOCK]);
 // Snapshot the next block to push into out and clear its pending bit. A commit to it after this
 // sets the bit again, so the newer bytes go too. -1 if nothing may go.
 int  pulsar_card_take(bool data_in_flight, uint8_t out[PULSAR_CARD_BLOCK]);
+// The link has nothing taken out unconfirmed: what it has not confirmed it has requeued. Until
+// then the card is not drained, so slot 2 cannot change hands under a block in flight.
+void pulsar_card_settled(void);
 void pulsar_card_requeue(uint8_t blk);       // its push failed or was not confirmed
 void pulsar_card_discard(void);              // the card changed: nothing pending is for it
 unsigned pulsar_card_pending(void);          // blocks pending (heartbeat)

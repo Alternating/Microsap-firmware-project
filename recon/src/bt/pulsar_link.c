@@ -97,6 +97,7 @@ typedef struct {
     bool sess, pulled;
     bd_addr_t peer;
     uint32_t epoch, card;
+    uint32_t attachment;    // pulsar_card_attachment() the session belongs to: slot 2's buffer
     bool want_status;       // a STATUS? still to send, retried from the tick while busy
     bool gave_up;           // a block's READ failed every try: no re-pull until a new generation
     // Pull: blocks to READ in order, one outstanding.
@@ -177,6 +178,19 @@ static void store_forget_push(void)
     s_store.sending = false;
     s_store.nflight = 0;
     s_store.full = false;
+    pulsar_card_settled();
+}
+
+// Slot 2's buffer changed hands: the session was for the image that left, whatever
+// the epoch says. A card attached since needs a STATUS to start its pull. Returns whether it did.
+static bool store_sync(void)
+{
+    uint32_t a = pulsar_card_attachment();
+    if (a == s_store.attachment) return false;
+    s_store.attachment = a;
+    store_forget_push();
+    s_store.sess = s_store.pulling = s_store.pulled = s_store.gave_up = false;
+    return true;
 }
 
 // Root, FAT, directory from the top, then whatever the FAT says is in use.
@@ -229,6 +243,8 @@ static void store_on_status(pl_link_t *l)
         printf("[pulsar] 0x%04x owns the card\n", l->con);
     }
     if (l != s_store.owner) return;
+    pulsar_card_set_linked(true);                           // core1 may move slot 2 to it
+    store_sync();
     if (!pulsar_card_available()) return;                   // the SD card holds slot 2
     s_store.full = false;                                   // queue_free may have moved
 
@@ -400,6 +416,7 @@ static void store_tick(btstack_timer_source_t *ts)
     pl_link_t *l = btstack_run_loop_get_timer_context(ts);
     btstack_run_loop_set_timer(ts, PULSAR_TICK_MS);
     btstack_run_loop_add_timer(ts);
+    if (store_sync() && pulsar_card_available()) s_store.want_status = true;
     if (l->state != PL_READY) return;
     uint32_t now = btstack_run_loop_get_time_ms();
     if (s_store.want_status) {
@@ -408,6 +425,7 @@ static void store_tick(btstack_timer_source_t *ts)
     }
     if (s_store.pulling) pull_service(l, now);
     else if (s_store.pulled && (l->flags & PULSAR_FLAG_VMU)) push_service(l, now);
+    if (!s_store.sending && !s_store.nflight) pulsar_card_settled();
     pulsar_lcd_progress(s_store.pulling ? s_store.i : 0, s_store.pulling ? s_store.n : 0);
     pulsar_lcd_service(l->con, l->chr_lcd.value_handle, l->mtu);
 }
@@ -426,6 +444,9 @@ static void store_drop(void)
     s_store.want_status = false;        // the next link asks for STATUS as it subscribes
     s_store.owner = NULL;
     pulsar_lcd_reset();
+    // Last: core1 holds slot 2 for the Pulsar while its card is owed blocks, so by the time it
+    // sees the link gone it must see them requeued above.
+    pulsar_card_set_linked(false);
 }
 
 static void decode_status(pl_link_t *l, const uint8_t *v, uint16_t len)

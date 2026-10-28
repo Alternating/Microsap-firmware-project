@@ -470,7 +470,8 @@ void maple_core1_main(void)
     }
     // Without the SD card, slot 2's buffer holds the VMU docked in a Pulsar, which the link
     // fills once one connects. Before g_core1_ready: core0 starts Bluetooth only after it.
-    pulsar_card_init(g_dual_vmu ? NULL : vmu_buf2);
+    pulsar_card_init(vmu_buf2);
+    if (!g_dual_vmu) pulsar_card_attach();
     pulsar_lcd_init();
     usb_announce(/*DAT_10001b80*/ 0);
 
