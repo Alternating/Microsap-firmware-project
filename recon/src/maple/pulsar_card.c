@@ -28,6 +28,8 @@ static uint8_t  s_stage[PULSAR_CARD_BLOCK] __attribute__((aligned(4)));
 static int      s_stage_blk = -1;
 static uint8_t  s_stage_phases;          // bit per phase received
 static uint32_t s_stage_gen;
+static int      s_done_blk = -1;         // the block the last commit took (see committed())
+static uint32_t s_done_gen;
 
 volatile uint32_t g_pulsar_card_commits, g_pulsar_card_refused;
 
@@ -93,8 +95,16 @@ static bool commit(uint32_t loc)
         ok = true;
     }
     unlock(irq);
+    if (ok) { s_done_blk = (int)blk; s_done_gen = s_stage_gen; }
     s_stage_blk = -1;
     return ok;
+}
+
+// A second GET_LAST_ERROR for the block just committed, its ACK lost on the bus: ACK it again, as
+// slot 1 does, rather than report a failed save for a block already in the image and queued.
+static bool committed(uint32_t loc)
+{
+    return s_stage_blk < 0 && (int)(loc & 0xffff) == s_done_blk && s_done_gen == s_gen;
 }
 
 bool pulsar_card_handle(const uint8_t *f, maple_frame_t *out)
@@ -116,6 +126,7 @@ bool pulsar_card_handle(const uint8_t *f, maple_frame_t *out)
 
     case MAPLE_CMD_RESET:
         s_stage_blk = -1;
+        s_done_blk = -1;
         out->header = MAPLE_HDR_ACK_SUB;
         return true;
 
@@ -154,8 +165,9 @@ bool pulsar_card_handle(const uint8_t *f, maple_frame_t *out)
 
     case MAPLE_CMD_GET_LAST_ERROR:
         if (!storage) break;
-        if (commit(rd32(f + 8))) { g_pulsar_card_commits++; out->header = MAPLE_HDR_ACK_SUB; }
-        else                     { g_pulsar_card_refused++; out->header = MAPLE_HDR_ERR_SUB; }
+        if (commit(rd32(f + 8)))         { g_pulsar_card_commits++; out->header = MAPLE_HDR_ACK_SUB; }
+        else if (committed(rd32(f + 8))) out->header = MAPLE_HDR_ACK_SUB;
+        else                             { g_pulsar_card_refused++; out->header = MAPLE_HDR_ERR_SUB; }
         return true;
 
     case MAPLE_CMD_GET_CONDITION:
