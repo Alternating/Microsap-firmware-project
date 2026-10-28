@@ -12,6 +12,7 @@
 
 queue_t g_sd_write_queue;
 uint8_t g_storage_status;      // 1 = no SD, 2 = SD mounted  (@0x2000fd6b)
+volatile uint32_t g_sd_write_fails;   // queued page writes that failed: read by core1's slot-2 switch
 static FATFS g_fs;
 
 // FatFs is built without FF_FS_REENTRANT, and after boot both cores reach it: core0 writes
@@ -105,6 +106,7 @@ int sd_write_queue_service(void)
         ? gameid_vmu_write(m.gameid, 0, m.offset, m.data, sizeof m.data)
         : vmu_bank_file_write(m.bank, m.offset, m.data, sizeof m.data);
     if (rc) {
+        g_sd_write_fails++;
         printf("[sd] page write failed: bank %u offset 0x%05lx, retrying\n",
                m.bank, (unsigned long)m.offset);
         retry_at = time_us_64() + 1000000;

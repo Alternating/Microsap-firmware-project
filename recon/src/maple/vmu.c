@@ -182,6 +182,9 @@ int vmu_init(vmu_state_t *v)
 // backing file differs from slot 1. Returns -1 if SD isn't usable (slot 2 then stays absent).
 int vmu_init_slot2(vmu_state_t *v)
 {
+    // The buffer may have held the Pulsar's card: nothing in it is SD's to flush,
+    // and a failed load below would otherwise leave a stale mask for the next flush.
+    v->dirty_mask = 0;
     v->storage_mode = 1;
     if (vmu_load_bank_image(v, 2)) {
         // Fresh card: vmu02.bin doesn't exist yet, so the load failed before formatting.

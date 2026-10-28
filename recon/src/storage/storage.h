@@ -34,6 +34,7 @@ void mapping_defaults(uint8_t *mapping);                                  // 0x1
 // ---- SD layer ----
 extern queue_t g_sd_write_queue;   // element 0x1014 bytes, depth 16; consumed on core0
 extern uint8_t g_storage_status;   // 1 = no SD, 2 = SD mounted (@0x2000fd6b)
+extern volatile uint32_t g_sd_write_fails;   // queued page writes that failed (never reset)
 
 int sd_ensure_dirs(void);                                                  // 0x100039d0
 int sd_read_file(const char *name, void *buf, size_t exact_len);           // 0x10003a50
