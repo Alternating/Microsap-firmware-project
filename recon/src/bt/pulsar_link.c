@@ -127,6 +127,7 @@ typedef struct {
 static pl_store_t s_store;
 
 static void store_tick(btstack_timer_source_t *ts);
+static void store_drop(void);
 
 static void request_next_query(pl_link_t *l);
 static void gatt_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size);
@@ -156,6 +157,10 @@ static void fail(pl_link_t *l, const char *where, uint8_t code)
     l->fail_where = where;
     l->fail_code = code;
     printf("[pulsar] 0x%04x FAILED at %s, code 0x%02x\n", l->con, where, code);
+    // Its STATUS can already have made it the owner (it comes as the CCC write lands). A failed
+    // link serves nothing, so it lets go: the card leaves, the screen resets, slot 2 can fall
+    // back to SD, and another Pulsar's STATUS can take the store, without waiting for a disconnect.
+    if (l == s_store.owner) store_drop();
 }
 
 static bool is_pulsar_chr(const gatt_client_characteristic_t *c, uint8_t which)
@@ -292,6 +297,7 @@ static uint32_t card_fingerprint(void)
 
 static void store_on_status(pl_link_t *l)
 {
+    if (l->state == PL_FAILED) return;                      // let go of the store (fail())
     if (!s_store.owner) {
         s_store.owner = l;
         btstack_run_loop_set_timer_handler(&s_store.tick, store_tick);
