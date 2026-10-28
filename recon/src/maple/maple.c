@@ -182,10 +182,12 @@ static void slot2_move(uint8_t *vmu_buf, uint8_t *vmu_buf2, bool linked, uint32_
         printf("[slot2] leaving %s\n", s_slot2 == SLOT2_SD ? "SD" : "the Pulsar");
     }
     if (s_slot2 == SLOT2_SD) {
-        // Every dirty page into the write queue, and the queue onto the card. A failed write counts
-        // as done: a card pulled while it held slot 2 is never initialised again (no detect pin),
-        // and must not wedge the switch.
-        if (g_sd_write_fails == s_slot2_fails &&
+        // Every dirty page into the write queue, and the queue onto the card. A card pulled while
+        // it held slot 2 is never initialised again (no detect pin): its page fails and is retried
+        // each second for ever, and must not wedge the switch. Three failures since the switch
+        // began count as that, and it goes on without what is unwritten; a transient failure
+        // clears on a retry, and the flush carries on.
+        if (g_sd_write_fails - s_slot2_fails < 3 &&
             (vmu_flush_dirty(vmu_buf2) != 0 || !queue_is_empty(&g_sd_write_queue)))
             return;
         g_dual_vmu = false;
