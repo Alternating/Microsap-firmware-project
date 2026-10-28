@@ -276,6 +276,19 @@ void pulsar_card_read(uint8_t blk, uint8_t out[PULSAR_CARD_BLOCK])
     unlock(irq);
 }
 
+int pulsar_card_compare(uint8_t blk, unsigned phase, const uint8_t data[PULSAR_CARD_PHASE])
+{
+    int r = 1;
+    uint32_t irq = lock();
+    if (s_pending[blk >> 5] & (1u << (blk & 31)))
+        r = -1;
+    else if (s_attached)
+        r = memcmp(&s_card->image[blk * PULSAR_CARD_BLOCK + (phase & 3) * PULSAR_CARD_PHASE], data,
+                   PULSAR_CARD_PHASE) != 0;
+    unlock(irq);
+    return r;
+}
+
 int pulsar_card_take(bool data_in_flight, uint8_t out[PULSAR_CARD_BLOCK])
 {
     int blk = -1;

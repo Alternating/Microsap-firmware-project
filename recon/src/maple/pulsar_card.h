@@ -66,6 +66,10 @@ void pulsar_card_set_present(bool present);
 void pulsar_card_begin_pull(void);
 void pulsar_card_fill(uint8_t blk, unsigned phase, const uint8_t data[PULSAR_CARD_PHASE]);
 void pulsar_card_read(uint8_t blk, uint8_t out[PULSAR_CARD_BLOCK]);
+// The re-read on a moved epoch: one phase as the Pulsar reads it back, against the
+// image, under the lock. 0 equal, 1 different, -1 not compared: the block is owed, its newer
+// bytes not on the card yet.
+int  pulsar_card_compare(uint8_t blk, unsigned phase, const uint8_t data[PULSAR_CARD_PHASE]);
 
 // The write queue: block numbers, never bytes; the bytes are read from the image as the block
 // goes, so a block written twice before it drains goes once, newest. Data blocks (0-240)
