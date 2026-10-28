@@ -153,12 +153,15 @@ void maple_storage_hotplug_tick(void)
 
 // ---- Slot 2: the SD card's VMU or the Pulsar's ----------------------------------
 // One buffer, never both: slot2.h decides where slot 2 heads, this moves it. A switch is an unplug
-// and a replug: slot 2's bit is down from its first step to its last, so the console never sees a
-// card change under it. Leaving SD flushes first; leaving the Pulsar drains first, then reloads
-// SD, the one step that stops core1.
+// and a replug: slot 2's bit is down from its first step until 300 ms after its last, answered
+// throughout as the bank switch does, so the console sees the card go and drops its cached
+// directory. A switch can end in the pass it began (a drained Pulsar to SD); without the 300 ms no
+// reply would ever carry the bit down. Leaving SD flushes first; leaving the Pulsar drains first,
+// then reloads SD, the one step that stops core1.
 static slot2_backing_t s_slot2;            // what vmu_buf2 holds
 static volatile uint8_t s_slot2_choice;    // SETTINGS_FIELD_SLOT2, posted by core0
 static bool     s_slot2_moving;            // a switch has begun: the bit is down
+static uint64_t s_slot2_back;              // a switch has ended: the bit stays down until then
 static uint64_t s_slot2_lost;              // when the Pulsar holding slot 2 went; 0 while it has not
 static uint32_t s_slot2_fails;             // g_sd_write_fails as the switch began
 
@@ -210,6 +213,7 @@ static void slot2_move(uint8_t *vmu_buf, uint8_t *vmu_buf2, bool linked, uint32_
         s_slot2 = SLOT2_SD;
     }
     s_slot2_moving = false;
+    s_slot2_back = time_us_64() + 300000;   // the bank switch's 300 ms off the bus
     printf("[slot2] now %s\n", s_slot2 == SLOT2_SD ? "SD" : "the Pulsar");
 }
 
@@ -229,9 +233,10 @@ static void slot2_service(uint8_t *vmu_buf, uint8_t *vmu_buf2, uint32_t idle_fra
         if (want != s_slot2) slot2_move(vmu_buf, vmu_buf2, linked, idle_frames);
         else s_slot2_moving = false;     // a switch called off before it moved anything
     } else s_slot2_moving = false;       // the card failed mid-switch: slot 2 stays where it is
-    // Down from a switch's first step to its last; until a switch begins (it waits for the bus to
-    // go idle), it follows the card as ever.
-    if (!s_slot2_moving) slot2_set_bit(s_slot2 == SLOT2_SD ? g_dual_vmu : pulsar_card_present());
+    // Down from a switch's first step until 300 ms after its last; until a switch begins (it waits
+    // for the bus to go idle), it follows the card as ever.
+    if (!s_slot2_moving && time_us_64() >= s_slot2_back)
+        slot2_set_bit(s_slot2 == SLOT2_SD ? g_dual_vmu : pulsar_card_present());
 }
 
 // ---- RX -----------------------------------------------------------------------
