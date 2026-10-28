@@ -1,6 +1,6 @@
 // slot2.h — where slot 2 heads: the SD card's VMU or the one docked in a Pulsar.
 // Both live in one buffer, never both at once; maple.c moves the slot, this decides. No hardware
-// and no clock of its own, so the host test drives it.
+// and no clock of its own, so a host test can drive it.
 #ifndef P2M_SLOT2_H
 #define P2M_SLOT2_H
 
