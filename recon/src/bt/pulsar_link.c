@@ -362,6 +362,14 @@ static void store_on_data(pl_link_t *l, const uint8_t *v, uint16_t len)
             printf("[pulsar] card: READ %u failed %u times, pull given up\n", blk, s_store.tries);
             s_store.pulling = false;
             s_store.gave_up = true;
+            if (s_store.verify) {
+                // The re-read: the card cannot be told the same, so it goes as a failed pull
+                // leaves it, absent with nothing owed. Kept present, it would take saves that
+                // nothing pushes, and owed blocks would hold slot 2 for as long as the link stays.
+                pulsar_card_set_present(false);
+                pulsar_card_discard();
+                s_store.verify = s_store.pulled = false;
+            }
             return;
         }
         // NO_VMU and DISCARDED come with a new generation: let the next STATUS start over, and
