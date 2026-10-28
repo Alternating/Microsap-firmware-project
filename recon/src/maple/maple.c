@@ -29,6 +29,7 @@
 #include "maple.pio.h"   // generated: maple_tx_program / maple_rx_program
 #include "maple_frames.h"   // decoded Maple response headers
 #include "pulsar_card.h"
+#include "bt/pulsar_lcd.h"
 
 // Controller GET_CONDITION reply: DATA_TRANSFER (cmd 8), 3 words (func + 8-byte condition),
 // src AP 0x20 (main peripheral). Verified from the original: header DAT_10001b6c = 0x08002003.
@@ -470,6 +471,7 @@ void maple_core1_main(void)
     // Without the SD card, slot 2's buffer holds the VMU docked in a Pulsar, which the link
     // fills once one connects. Before g_core1_ready: core0 starts Bluetooth only after it.
     pulsar_card_init(g_dual_vmu ? NULL : vmu_buf2);
+    pulsar_lcd_init();
     usb_announce(/*DAT_10001b80*/ 0);
 
     // Settings load + custom-map load now live on core0 in control_init(); core1 just loads the
@@ -734,6 +736,7 @@ cond_miss:;
             } else if (vp && func == MAPLE_FUNC_LCD) {
                 vmu_lcd_write(vp, *(const uint32_t *)(f + 8), f + 12, len - 2);
                 vmu_lcd_render_notify((void*)vp);
+                if (vp == vmu_buf) pulsar_lcd_frame(vp + 0x20000);  // vmu_state_t.lcd_fb
                 goto ack;
             } else if (to_rumble && func == MAPLE_FUNC_VIBRATION) {
                 rumble_set_block(0, 0);
