@@ -116,6 +116,11 @@ typedef struct {
     uint8_t buf[PULSAR_CARD_BLOCK];
     struct { uint8_t blk, seq; } flight[PULSAR_QUEUE_SLOTS];
     unsigned nflight;
+    // Slots free in the Pulsar's queue: the last STATUS queue_free, less each ACK OK since. After
+    // a reconnect inside a drain the queue still holds blocks from before, which nflight no longer
+    // counts. A WRITTEN frees a slot, but one owed from before a drop can arrive after the STATUS
+    // that already counted it, so a WRITTEN asks for a STATUS rather than adding one.
+    uint8_t budget;
     uint32_t written, failed;
 } pl_store_t;
 
@@ -296,6 +301,7 @@ static void store_on_status(pl_link_t *l)
         printf("[pulsar] 0x%04x owns the card\n", l->con);
     }
     if (l != s_store.owner) return;
+    s_store.budget = l->queue_free < PULSAR_QUEUE_SLOTS ? l->queue_free : PULSAR_QUEUE_SLOTS;
     pulsar_card_set_linked(true);                           // core1 may move slot 2 to it
     store_sync();
     if (!pulsar_card_available()) return;                   // the SD card holds slot 2
@@ -397,6 +403,7 @@ static void store_on_ack(pl_link_t *l, const uint8_t *v, uint16_t len)
     if (v[1] != s_store.blk || v[2] != s_store.seq) return;
     s_store.sending = false;
     if (v[3] == PULSAR_RES_OK) {
+        if (s_store.budget) s_store.budget--;
         s_store.flight[s_store.nflight].blk = s_store.blk;
         s_store.flight[s_store.nflight].seq = s_store.seq;
         s_store.nflight++;
@@ -411,6 +418,7 @@ static void store_on_ack(pl_link_t *l, const uint8_t *v, uint16_t len)
 static void store_on_written(pl_link_t *l, const uint8_t *v, uint16_t len)
 {
     if (l != s_store.owner || len != 4) return;
+    s_store.want_status = true;          // a slot freed: the next tick asks how many there are
     for (unsigned k = 0; k < s_store.nflight; k++) {
         if (s_store.flight[k].blk != v[1] || s_store.flight[k].seq != v[2]) continue;
         s_store.flight[k] = s_store.flight[--s_store.nflight];
@@ -460,7 +468,7 @@ static bool seq_outstanding(uint8_t blk, uint8_t seq)
 static void push_service(pl_link_t *l, uint32_t now)
 {
     if (!s_store.sending) {
-        if (s_store.full || s_store.nflight >= PULSAR_QUEUE_SLOTS) return;
+        if (s_store.full || !s_store.budget || s_store.nflight >= PULSAR_QUEUE_SLOTS) return;
         int b = pulsar_card_take(data_in_flight(), s_store.buf);
         if (b < 0) return;
         s_store.sending = true;
